@@ -1,96 +1,143 @@
 # Product Requirement Document (PRD)
 
-## Project Name: SuperTerminal
+## Project: Superterminal (v1.0)
 
-**Version:** 1.0
+**Document Status:** Draft
 
-**Author:** Senior AI Engineer / Product Lead
+**Target Release:** Q3 2026
 
-**Status:** Draft
+**Author:** Qasim & AI Collaborator
 
 ---
 
 ## 1. Executive Summary & Objective
 
-Modern command-line interfaces (CLIs) suffer from a steep learning curve, demanding precise syntax memorization (e.g., flags, piping, environment-specific commands). **SuperTerminal** bridges this gap by replacing rigid terminal syntax with a natural English language interface. Leveraging an integrated local/cloud LLM orchestrator, it translates intent seamlessly into secure, optimized system execution without compromising power or control.
+Superterminal is a lightweight, high-performance global CLI tool designed to lower the barrier to entry for terminal operations. It replaces complex, syntax-heavy terminal commands with natural English language.
+
+Unlike separate GUI applications or isolated AI chat boxes, Superterminal runs entirely inside the user’s native shell environment via an interactive sub-shell wrapper. The goal is to provide a fluid, seamless workflow where experienced developers can bypass mnemonic fatigue and beginners can use advanced utilities safely, keeping the user in full control of final command execution.
 
 ---
 
-## 2. Target Audience & Core Value Proposition
+## 2. User Personas & Problem Alignment
 
-* **Target Users:** Software engineers, data scientists, DevOps practitioners, and non-technical professionals interacting with system shells.
-* **Value Proposition:** Eliminate syntactic context-switching. Instead of memorizing obscure commands, users state *what* they want to achieve, and SuperTerminal figures out *how* to do it safely across Windows (PowerShell/CMD) and Unix-like environments.
-
----
-
-## 3. Product Features & Scope
-
-### 3.1 Core Architecture Flow
-
-```
-[User Interface / Input] 
-         │
-         ▼
-[Context Collector] (System OS, Directory Path, Environment Variables)
-         │
-         ▼
-[Execution Planner / LLM Engine] (Intent Parsing & Context Synthesis)
-         │
-         ▼
-[Safety / Verification Guardrails] (Risk Analysis & Explicit Approvals)
-         │
-         ▼
-[Terminal Runtime Engine] (Execution & Feedback Loop)
-
-```
-
-### 3.2 Feature Breakdown
-
-| Feature | Description | Priority |
+| Persona | Core Pain Point | Superterminal Value Proposition |
 | --- | --- | --- |
-| **Natural Language Parsing Engine** | Translates fluid English inputs into executable, context-aware shell commands. | **P0** (Critical) |
-| **Cross-Platform Execution Engine** | Seamless execution across Windows PowerShell, Bash, and Zsh. | **P0** (Critical) |
-| **Interactive Safety Guardrails** | Flags destructive actions (e.g., recursive deletes) and requires explicit confirmation. | **P0** (Critical) |
-| **Context-Aware Memory System** | Collects working directory, shell state, and previous terminal history for continuous dialogue. | **P1** (High) |
-| **Smart Alias & Hook System** | Allows native integration to map custom English phrases to complex multi-step scripts. | **P2** (Medium) |
-| **Hybrid LLM Provider Mode** | Toggle between local quantized models (for zero-latency/offline privacy) and cloud LLMs. | **P2** (Medium) |
+| **The Junior Developer / Student** | Intimidated by complex CLI syntax, flags, and cross-platform differences (e.g., CMD vs. Bash). | Can express intent naturally without breaking flow to search documentation. |
+| **The Polyglot / DevOps Engineer** | Context-switching between platforms leads to syntax errors (e.g., forgetting Windows equivalents for `tar`, `find`, or network tools). | Provides a single unified natural language interface across Windows, macOS, and Linux. |
 
 ---
 
-## 4. User Workflows & Concrete Examples
+## 3. Product Architecture & Technical Bounds
 
-### Workflow A: Everyday File & Directory Automation
+### 3.1 Global System Architecture
 
-* **User Input:** `"find all log files modified in the last 2 days that are bigger than 5MB and move them to a new folder called debug_logs"`
-* **System Action:**
-1. Detects OS platform (e.g., Windows/PowerShell vs. Linux/Bash).
-2. Synthesizes the correct execution block (handling `mkdir`, find/filter logic, and file transfer piping).
-3. Displays the plan to the user for validation.
-4. Executes upon confirmation.
+Superterminal will be compiled and distributed as a self-contained **Global CLI Binary** (e.g., built in Go or Rust) to ensure sub-millisecond initialization and cross-platform compatibility.
 
+### 3.2 Environment Constraints
 
-
-### Workflow B: Developer Environment Initialization
-
-* **User Input:** `"spin up a clean virtual environment, add fastapi and uvicorn to a requirements file, and start a local dev server"`
-* **System Action:** Instantiates `.venv`, generates `requirements.txt`, runs the package installer, and initializes the local execution process sequentially.
+* **Active Detection:** The binary must dynamically detect the host Operating System and parent shell process upon initialization.
+* **Zero File-System Context Tracking:** For speed, privacy, and simplicity, Superterminal does *not* read or index the user's local directory trees, files, or histories. The natural language input must explicitly state identifiers (e.g., `"delete folder project-alpha"` instead of `"delete this folder"`).
 
 ---
 
-## 5. Security & Safety Principles
+## 4. Detailed Feature & Functional Requirements
 
-> ### 🛑 The Security Golden Rule
-> 
-> 
-> No generated command capable of changing system state, altering files, or sending network requests may execute silently.
+### 4.1 Feature: Interactive Session Management (`Super` Environment)
 
-* **Risk Categorization:** Commands are classified as **Safe** (read-only, e.g., `pwd`, `ls`) or **Destructive/Mutative** (write/delete operations).
-* **Explicit Approval Loops:** Destructive actions demand an explicit `[Y/N]` prompt or biometric verification bypass before touching the kernel or file system.
-* **Data Privacy & Masking:** PII, local authentication tokens, and passwords must be masked locally by the context collector before shipping intent data to cloud LLM APIs.
+* **Requirement ID:** FR-001
+* **Description:** The user initializes the natural language shell state by running a specific command keyword.
+* **Functional Specification:**
+* Typing `Super` followed by `Enter` invokes the binary and suspends normal shell evaluation.
+* The terminal prompt must change to visually display state mutation, replacing the standard platform prompt with `Super > `.
+* Typing `Exit Super` and pressing `Enter` must cleanly close the sub-shell thread and return the user safely to their native parent shell context.
+
+
+
+### 4.2 Feature: Cross-Platform Environment Mapping
+
+* **Requirement ID:** FR-002
+* **Description:** Natural language must translate accurately into the correct syntax of the *detected* runtime shell environment.
+* **Functional Specification:**
+* The translation layer must output shell-specific scripts.
+* *Example Intent:* `"show all files including hidden ones"`
+* **Windows Command Prompt (cmd):** Output `dir /a`
+* **macOS / Linux (Zsh / Bash):** Output `ls -a`
+
+
+
+
+
+### 4.3 Feature: Command Intent Classification (Read-Only vs. Modifying)
+
+* **Requirement ID:** FR-003
+* **Description:** To maximize workflow efficiency while preserving absolute security, Superterminal must bifurcate incoming commands into two structural execution pipelines based on intent.
+
+```
+                  [ User inputs Natural Language ]
+                                 │
+                     ┌───────────┴───────────┐
+                     ▼                       ▼
+            [ Read-Only Intent ]    [ Modifying Intent ]
+                     │                       │
+         (Execute Instantly & Print)   (Inject Inline to Prompt)
+                     │                       │
+                     ▼                       ▼
+             [ Return to Super > ]   [ User Edits/Confirms -> Enter ]
+
+```
+
+#### Pipeline A: The Read-Only Fast Track
+
+* **Criteria:** Queries that simply retrieve, view, or parse data without changing state (e.g., reading logs, listing structures, checking status, viewing paths).
+* **Execution Behavior:** Superterminal translates the natural language query, passes it directly to the system kernel for execution, prints the output logs cleanly, and drops the cursor down to a fresh `Super > ` line immediately. Only **one** user `Enter` stroke is needed.
+
+#### Pipeline B: The Modifying Track (Human Guardrail)
+
+* **Criteria:** Queries that write, delete, overwrite, provision, deploy, clone, or manipulate file systems, settings, or remote environments (e.g., `mkdir`, `rm`, `git clone`, `chmod`).
+* **Execution Behavior:** Superterminal translates the prompt but **strictly forbids automatic execution**. Instead, it intercepts the input pipeline and dynamically injects the raw shell text string directly onto the next interactive line.
+
+### 4.4 Feature: Inline Text Injection & Manipulation
+
+* **Requirement ID:** FR-004
+* **Description:** The user must be allowed full terminal capabilities over the generated modifying string.
+* **Functional Specification:**
+* When a Modifying Command string is injected onto the line, the cursor must sit at the end of the text.
+* The user must have full terminal navigation: arrow keys to traverse, backspace to eliminate text, and keys to insert custom arguments or configurations manually.
+* **The Ultimate Guardrail:** Execution *only* triggers when the user actively strikes the `Enter` key a second time on that modified or approved command.
+
+
 
 ---
 
-## 6. Future Roadmap (Post-V1)
+## 5. Non-Functional Requirements (NFRs)
 
-* **Offline Quantized Execution:** Shifting semantic parsing to an embedded, ultra-lightweight local model to preserve terminal speed during internet outages.
-* **Multimodal Terminal Interaction:** Support for dragging and dropping layout screenshots directly into the terminal window to auto-generate responsive UI code files.
+### 5.1 Performance & Latency
+
+* The translation engine latency (from hitting `Enter` on natural language to displaying the generated command or output) must not exceed **250ms**.
+* Binary load time when typing `Super` must be imperceptible (< 50ms).
+
+### 5.2 Security & Privacy
+
+* Because translation happens inside the user terminal environment, zero operational shell logs or sensitive credentials handled in natural language statements should be retained externally by Superterminal.
+
+---
+
+## 6. Key Verification Scenarios (UAT)
+
+### Scenario 1: The Fast-Track View
+
+1. User types `Super` $\rightarrow$ System enters sub-shell (`Super > `).
+2. User types `check my git branch status` and hits `Enter`.
+3. System classifies as **Read-Only**, executes `git status`, outputs branch info, and serves a new `Super > ` line.
+
+### Scenario 2: The Inline Edit Guardrail
+
+1. User types `create folder called test-environment` inside `Super > ` and hits `Enter`.
+2. System classifies as **Modifying**, prints `mkdir test-environment` on the next line, and leaves the cursor blinking.
+3. User uses left-arrow keys, changes `test-environment` to `prod-environment`, and hits `Enter`.
+4. System executes `mkdir prod-environment` and displays a new `Super > ` line.
+
+### Scenario 3: Exiting
+
+1. User types `Exit Super` inside `Super > ` and hits `Enter`.
+2. System tears down the sub-shell wrapper and drops user safely into `C:\Users\Arfa>` or `~/`.
