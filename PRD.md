@@ -49,7 +49,7 @@ Superterminal will be compiled and distributed as a self-contained **Global CLI 
 * **Functional Specification:**
 * Typing `Super` followed by `Enter` invokes the binary and suspends normal shell evaluation.
 * The terminal prompt must change to visually display state mutation, replacing the standard platform prompt with `Super > `.
-* Ttyping 'exit', 'quit' or 'leave' all three should do that (case-insensitive), and pressing `Enter` must cleanly close the sub-shell thread and return the user safely to their native parent shell context.
+* Typing 'exit', 'quit' or 'leave' all three should do that (case-insensitive), and pressing `Enter` must cleanly close the sub-shell thread and return the user safely to their native parent shell context.
 
 
 
