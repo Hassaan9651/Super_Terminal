@@ -1,11 +1,25 @@
 import sys
 import os
 import re
+import subprocess
+from utils.capabilities import detect_installed_tools, format_tool_context
+from utils.config import ConfigError, ensure_gemini_api_key, get_config_file
 from utils.detector import detect_environment
 from utils.translator import translate_intent, TranslationError
 from utils.classifier import classify_command
 from utils.executor import execute_readonly_command
 from utils.injector import handle_modifying_command
+
+READLINE_START_INVISIBLE = "\001"
+READLINE_END_INVISIBLE = "\002"
+ANSI_RED = "\033[31m"
+ANSI_YELLOW = "\033[33m"
+ANSI_RESET = "\033[0m"
+
+
+def nonprinting(text: str) -> str:
+    return f"{READLINE_START_INVISIBLE}{text}{READLINE_END_INVISIBLE}"
+
 
 def handle_directory_change(command_str: str) -> bool:
     """
@@ -45,6 +59,24 @@ def handle_directory_change(command_str: str) -> bool:
     return False
 
 
+def execute_command(command_str: str, shell_name: str) -> None:
+    """Executes a user-approved shell command in the active shell context."""
+    safety_classification = classify_command(command_str, shell_name)
+    if safety_classification == "READ-ONLY":
+        execute_readonly_command(command_str, shell_name)
+    elif sys.platform == "win32" and shell_name.lower() == "powershell":
+        subprocess.run(["powershell.exe", "-Command", command_str])
+    else:
+        subprocess.run(command_str, shell=True)
+
+
+def format_prompt() -> str:
+    red = nonprinting(ANSI_RED)
+    yellow = nonprinting(ANSI_YELLOW)
+    reset = nonprinting(ANSI_RESET)
+    return f"{red}SuperTerminal{reset} {yellow}({os.getcwd()}){reset} > "
+
+
 def main():
     """
     Main application entry point. Initializes the environment detector,
@@ -61,17 +93,28 @@ def main():
     # 1. Detect Host OS and active shell
     os_name, shell_name = detect_environment()
 
+    try:
+        ensure_gemini_api_key()
+    except (ConfigError, KeyboardInterrupt, EOFError) as exc:
+        if isinstance(exc, KeyboardInterrupt):
+            print("\nGemini API key setup cancelled.")
+        else:
+            print(f"Gemini API key setup failed: {exc}")
+        sys.exit(1)
+
     # 2. Print activation and greeting message using exact formatting
     print(f"⚡ Superterminal Activated [Host: {os_name} | Shell: {shell_name}]")
     print("👉 Turn your natural English thoughts into executable terminal commands.")
     print("👉 Type 'exit', 'quit', or 'leave' to return to your native shell.")
+    print(f"👉 Gemini key loaded from environment")
 
     # 3. Core interactive sub-shell loop
+    pending_modifying_command = False
+
     try:
         while True:
             try:
-                # Prompt token must strictly display: "Super > "
-                user_input = input("Super > ")
+                user_input = input(format_prompt())
             except EOFError:
                 # Handle Ctrl+D gracefully
                 print("\n👋 Deactivating Superterminal. Safe travels!")
@@ -87,6 +130,14 @@ def main():
 
             # Skip empty inputs
             if not normalized_input:
+                pending_modifying_command = False
+                continue
+
+            if pending_modifying_command:
+                pending_modifying_command = False
+                if handle_directory_change(normalized_input):
+                    continue
+                execute_command(normalized_input, shell_name)
                 continue
 
             # LOOP BREAK & STATE PRESERVATION FIX 1: Intercept directory change commands first!
@@ -106,19 +157,18 @@ def main():
             )
 
             if is_probably_command:
-                if safety_classification == "READ-ONLY":
-                    execute_readonly_command(normalized_input, shell_name)
-                else:
-                    import subprocess
-                    if sys.platform == "win32" and shell_name.lower() == "powershell":
-                        subprocess.run(["powershell.exe", "-Command", normalized_input])
-                    else:
-                        subprocess.run(normalized_input, shell=True)
+                execute_command(normalized_input, shell_name)
                 continue
 
             # Otherwise, translate the natural English intent using the LLM
             try:
-                translated_cmd = translate_intent(user_input, os_name, shell_name)
+                tool_context = format_tool_context(detect_installed_tools())
+                translated_cmd = translate_intent(
+                    user_input,
+                    os_name,
+                    shell_name,
+                    tool_context,
+                )
                 safety_classification = classify_command(translated_cmd, shell_name)
                 
                 # Check directory change on translated commands too!
@@ -131,6 +181,7 @@ def main():
                 else:
                     # Input-inject modifying commands safely
                     handle_modifying_command(translated_cmd, shell_name)
+                    pending_modifying_command = True
             except TranslationError as e:
                 print(f"Error: {e}")
             sys.stdout.flush()
