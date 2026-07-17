@@ -14,6 +14,30 @@ class TranslationError(Exception):
     pass
 
 
+def _extract_text_response(response) -> str:
+    """
+    Extracts only text parts from a Gemini response.
+
+    The SDK's response.text convenience property can warn when a response also
+    contains non-text parts such as thought_signature metadata.
+    """
+    text_parts = []
+    candidates = getattr(response, "candidates", None) or []
+
+    for candidate in candidates:
+        content = getattr(candidate, "content", None)
+        parts = getattr(content, "parts", None) or []
+        for part in parts:
+            text = getattr(part, "text", None)
+            if text:
+                text_parts.append(text)
+
+    if text_parts:
+        return "".join(text_parts)
+
+    return getattr(response, "text", "") or ""
+
+
 # ---------------------------------------------------------------------------
 # System instruction handed to the LLM on every call.
 # Kept as a module-level constant so it is defined once and never rebuilt.
@@ -109,7 +133,7 @@ def translate_intent(
         )
 
         # --- 4. Extract and sanitise the command ----------------------------
-        raw = response.text
+        raw = _extract_text_response(response)
 
         if not raw or not raw.strip():
             raise TranslationError(

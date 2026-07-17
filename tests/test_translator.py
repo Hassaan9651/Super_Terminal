@@ -11,6 +11,18 @@ def _make_mock_response(text: str) -> MagicMock:
     return mock_response
 
 
+def _make_parts_response(*parts: MagicMock) -> MagicMock:
+    """Helper: build a mock Gemini response with candidate content parts."""
+    mock_response = MagicMock()
+    mock_response.candidates = [
+        MagicMock(content=MagicMock(parts=list(parts)))
+    ]
+    type(mock_response).text = property(
+        lambda self: (_ for _ in ()).throw(AssertionError("response.text accessed"))
+    )
+    return mock_response
+
+
 class TestTranslator(unittest.TestCase):
 
     # ------------------------------------------------------------------
@@ -120,6 +132,22 @@ class TestTranslator(unittest.TestCase):
         )
         result = translate_intent("show directory", "Windows", "cmd.exe")
         self.assertEqual(result, "dir")
+
+    @patch("utils.translator.genai.Client")
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "AIzattttttttttttttttttttttttttttttttttt"})
+    def test_extracts_text_parts_without_response_text_warning(self, mock_client_cls):
+        """Non-text response parts are ignored without touching response.text."""
+        text_part = MagicMock(text="mkdir demo")
+        thought_part = MagicMock()
+        del thought_part.text
+        thought_part.thought_signature = "opaque"
+        mock_client_cls.return_value.models.generate_content.return_value = (
+            _make_parts_response(thought_part, text_part)
+        )
+
+        result = translate_intent("make a folder called demo", "Linux", "bash")
+
+        self.assertEqual(result, "mkdir demo")
 
     # ------------------------------------------------------------------
     # Error / exception paths
