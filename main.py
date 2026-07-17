@@ -79,6 +79,10 @@ def format_prompt() -> str:
     return f"{red}SuperTerminal{reset} {yellow}({os.getcwd()}){reset} > "
 
 
+def format_plain_prompt() -> str:
+    return f"SuperTerminal ({os.getcwd()}) > "
+
+
 def main():
     """
     Main application entry point. Initializes the environment detector,
@@ -111,7 +115,6 @@ def main():
     print(f"👉 Gemini key loaded from environment")
 
     # 3. Core interactive sub-shell loop
-    pending_modifying_command = False
     enable_persistent_history()
     enable_path_completion()
 
@@ -134,14 +137,6 @@ def main():
 
             # Skip empty inputs
             if not normalized_input:
-                pending_modifying_command = False
-                continue
-
-            if pending_modifying_command:
-                pending_modifying_command = False
-                if handle_directory_change(normalized_input):
-                    continue
-                execute_command(normalized_input, shell_name)
                 continue
 
             # LOOP BREAK & STATE PRESERVATION FIX 1: Intercept directory change commands first!
@@ -183,9 +178,15 @@ def main():
                     # Pass both parameters to execute via powershell.exe on Windows
                     execute_readonly_command(translated_cmd, shell_name)
                 else:
-                    # Input-inject modifying commands safely
-                    handle_modifying_command(translated_cmd, shell_name)
-                    pending_modifying_command = True
+                    approved_cmd = handle_modifying_command(
+                        translated_cmd,
+                        shell_name,
+                        format_plain_prompt(),
+                    )
+                    if approved_cmd and approved_cmd.strip():
+                        if handle_directory_change(approved_cmd):
+                            continue
+                        execute_command(approved_cmd, shell_name)
             except TranslationError as e:
                 print(f"Error: {e}")
             sys.stdout.flush()
