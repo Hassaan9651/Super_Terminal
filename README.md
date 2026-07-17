@@ -67,7 +67,7 @@ SuperTerminal follows a focused Gemini-powered command translation flow:
                                       ▼
                   ┌────────────────────────────────────────┐
                   │          Orchestration Engine          │
-                  │       (litellm + langchain).           │
+                  │       (litellm + langchain)            │
                   └───────────────────┬────────────────────┘
                                       │
                                       ▼
