@@ -2,6 +2,12 @@ import sys
 import os
 import re
 import subprocess
+
+try:
+    import readline
+except ImportError:
+    readline = None
+
 from utils.capabilities import detect_installed_tools, format_tool_context
 from utils.completion import enable_path_completion
 from utils.config import ConfigError, ensure_gemini_api_key, get_config_file
@@ -22,6 +28,18 @@ ANSI_RESET = "\033[0m"
 
 def nonprinting(text: str) -> str:
     return f"{READLINE_START_INVISIBLE}{text}{READLINE_END_INVISIBLE}"
+
+
+def supports_readline_invisible_markers() -> bool:
+    if readline is None:
+        return False
+    return "libedit" not in getattr(readline, "__doc__", "").lower()
+
+
+def prompt_control(text: str) -> str:
+    if supports_readline_invisible_markers():
+        return nonprinting(text)
+    return text
 
 
 def handle_directory_change(command_str: str) -> bool:
@@ -83,9 +101,9 @@ def print_readonly_execution(command_str: str) -> None:
 
 
 def format_prompt() -> str:
-    red = nonprinting(ANSI_RED)
-    yellow = nonprinting(ANSI_YELLOW)
-    reset = nonprinting(ANSI_RESET)
+    red = prompt_control(ANSI_RED)
+    yellow = prompt_control(ANSI_YELLOW)
+    reset = prompt_control(ANSI_RESET)
     return f"{red}SuperTerminal{reset} {yellow}({os.getcwd()}){reset} > "
 
 

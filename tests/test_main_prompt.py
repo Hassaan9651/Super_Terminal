@@ -2,7 +2,19 @@ import os
 import unittest
 from unittest.mock import patch
 
-from main import ANSI_DARK_GREEN, ANSI_RESET, format_plain_prompt, format_prompt_fragments, format_readonly_execution_line
+from main import (
+    ANSI_DARK_GREEN,
+    ANSI_RED,
+    ANSI_RESET,
+    ANSI_YELLOW,
+    READLINE_END_INVISIBLE,
+    READLINE_START_INVISIBLE,
+    format_plain_prompt,
+    format_prompt,
+    format_prompt_fragments,
+    format_readonly_execution_line,
+    prompt_control,
+)
 
 
 class TestMainPrompt(unittest.TestCase):
@@ -24,6 +36,32 @@ class TestMainPrompt(unittest.TestCase):
         self.assertEqual(
             format_plain_prompt(),
             f"SuperTerminal ({os.path.join('tmp', 'project')}) > ",
+        )
+
+    @patch("main.readline")
+    def test_prompt_control_uses_readline_markers_for_gnu_readline(self, mock_readline):
+        mock_readline.__doc__ = "GNU readline"
+
+        self.assertEqual(
+            prompt_control(ANSI_RED),
+            f"{READLINE_START_INVISIBLE}{ANSI_RED}{READLINE_END_INVISIBLE}",
+        )
+
+    @patch("main.readline")
+    def test_prompt_control_uses_raw_ansi_for_libedit(self, mock_readline):
+        mock_readline.__doc__ = "EditLine wrapper for libedit"
+
+        self.assertEqual(prompt_control(ANSI_RED), ANSI_RED)
+
+    @patch("main.readline")
+    @patch("main.os.getcwd", return_value=os.path.join("tmp", "project"))
+    def test_format_prompt_uses_raw_ansi_on_libedit(self, mock_getcwd, mock_readline):
+        mock_readline.__doc__ = "EditLine wrapper for libedit"
+
+        self.assertEqual(
+            format_prompt(),
+            f"{ANSI_RED}SuperTerminal{ANSI_RESET} "
+            f"{ANSI_YELLOW}({os.path.join('tmp', 'project')}){ANSI_RESET} > ",
         )
 
     def test_format_readonly_execution_line_uses_dark_green(self):
