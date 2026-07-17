@@ -59,7 +59,11 @@ def get_gemini_api_key() -> str:
     env_key = os.environ.get(GEMINI_API_KEY_NAME, "").strip()
     if env_key:
         return env_key
-    return get_stored_gemini_api_key()
+
+    stored_key = get_stored_gemini_api_key()
+    if stored_key:
+        return stored_key
+    return ""
 
 
 def save_gemini_api_key(api_key: str) -> Path:
