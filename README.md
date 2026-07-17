@@ -23,6 +23,7 @@
 ## ✨ Features
 
 - **Natural Language to Shell**: Convert plain English prompts (e.g., `"find all log files modified in the last 24h and compress them"`) directly into syntax-valid CLI commands.
+- **Forgiving Input**: You do not need perfect terminal syntax, exact wording, or flawless spelling. Ask naturally, and SuperTerminal will infer the command you meant.
 - **Context-Aware Recommendations**: Understands your current OS, shell (bash, zsh, powershell), directory context, and command history to provide tailored assistance.
 - **Real-Time Error Troubleshooting**: Automatically captures stderr from failed commands and explains the root cause along with a one-click fix.
 - **Interactive Multi-Step Workflows**: Guides you through complex operations (e.g., setting up Docker environments, configuring CI/CD pipelines) using interactive prompt menus.
@@ -38,7 +39,6 @@ SuperTerminal is built using modern, light-weight, and highly-performant tools:
 - **CLI Framework**: [Typer](https://typer.tiangolo.com/) & [Rich](https://rich.readthedocs.io/) (for beautiful, interactive terminal user interfaces)
 - **Core Language**: [Python 3.8+](https://www.python.org/)
 - **LLM Orchestration**: [LiteLLM](https://github.com/BerriAI/litellm) / [LangChain](https://github.com/langchain-ai/langchain) (for seamless switching between OpenAI, Anthropic, Gemini, and local LLMs)
-- **Local LLM Support**: [Ollama](https://ollama.com/) integration
 - **Configuration & State**: [Pydantic Settings](https://docs.pydantic.dev/) & YAML configurations
 
 ---
@@ -103,23 +103,12 @@ To clone the repository and run it locally:
    cd SuperTerminal
    ```
 
-2. **Create and activate a virtual environment**:
-   ```bash
-   # Windows
-   python -m venv venv
-   .\venv\Scripts\activate
-
-   # macOS/Linux
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install the package locally**:
+2. **Install the package locally**:
    ```bash
    pip install -e .
    ```
 
-4. **Run SuperTerminal**:
+3. **Run SuperTerminal**:
    ```bash
    superterminal
    ```
@@ -146,15 +135,43 @@ SuperTerminal (/Users/me/project) > find all csv files in downloads
 
 Read-only commands run immediately. Modifying commands are placed on the next editable prompt line so you can review, change, and press Enter yourself.
 
----
+### Examples
 
-## 🗺️ Future Roadmap
+**Simple read-only query**
+```text
+SuperTerminal (/Users/me/project) > show me all python files in this folder
+```
+Possible command:
+```bash
+find . -name "*.py"
+```
 
-- [ ] **Shell Alias Integration**: Native shell alias hooks to execute commands instantly with a hotkey trigger.
-- [ ] **Local Offline Mode**: Optimized offline support using tiny, fast quantized coding models running locally.
-- [ ] **Collaborative Terminal Sessions**: Securely share terminal screens and AI-guided explanations with teammates.
-- [ ] **Custom System Agents**: Define customized scripts and context rules inside `.superterminal.yaml` files.
-- [ ] **Telemetry & CLI Analytics**: Local analytics dashboard to review saved time, executed commands, and error logs.
+**Modifying command**
+```text
+SuperTerminal (/Users/me/project) > make a new folder called notes
+```
+Possible editable command:
+```bash
+mkdir notes
+```
+
+**Hard natural query**
+```text
+SuperTerminal (/Users/me/project) > find every log file bigger than 10mb and move them into an archive folder
+```
+Possible editable command:
+```bash
+mkdir -p archive && find . -type f -name "*.log" -size +10M -exec mv {} archive/ \;
+```
+
+**Hard natural query with imperfect wording**
+```text
+SuperTerminal (/Users/me/project) > compress all jsn files frm downloads modified yestday into backup.zip
+```
+Possible editable command:
+```bash
+find ~/Downloads -name "*.json" -mtime -2 -mtime +0 -print0 | xargs -0 zip backup.zip
+```
 
 ---
 

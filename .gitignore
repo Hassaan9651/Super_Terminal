@@ -79,6 +79,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Private planning docs
+PRD.md
+
 # IDE / Editor config
 .vscode/
 .idea/
