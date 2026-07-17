@@ -70,6 +70,12 @@ class TestExecution(unittest.TestCase):
         self.assertTrue(prefill_next_input("rmdir temp"))
         mock_inject.assert_called_once_with("rmdir temp")
 
+    @patch("utils.injector.sys.platform", "win32")
+    @patch("utils.injector.inject_string_to_stdin", return_value=True)
+    def test_prefill_next_input_prefers_windows_console_injection(self, mock_inject):
+        self.assertTrue(prefill_next_input("mkdir win"))
+        mock_inject.assert_called_once_with("mkdir win")
+
     @patch("utils.injector.readline")
     def test_prefill_next_input_redisplays_prefilled_text(self, mock_readline):
         hook_holder = {}
@@ -84,6 +90,31 @@ class TestExecution(unittest.TestCase):
 
         mock_readline.insert_text.assert_called_once_with("mkdir hi")
         mock_readline.redisplay.assert_called_once_with()
+
+    @patch("utils.injector.readline")
+    def test_prefill_next_input_returns_false_when_readline_hook_setup_fails(self, mock_readline):
+        mock_readline.set_pre_input_hook.side_effect = RuntimeError("unsupported")
+
+        self.assertFalse(prefill_next_input("mkdir nope"))
+
+    @patch("utils.injector.readline")
+    def test_prefill_next_input_uses_startup_hook_for_libedit(self, mock_readline):
+        hook_holder = {}
+        mock_readline.__doc__ = "EditLine wrapper for libedit"
+
+        def set_startup_hook(hook):
+            hook_holder["hook"] = hook
+
+        mock_readline.set_startup_hook.side_effect = set_startup_hook
+
+        self.assertTrue(prefill_next_input("mkdir mac"))
+        startup_hook = hook_holder["hook"]
+        hook_holder["hook"]()
+
+        mock_readline.set_startup_hook.assert_any_call(startup_hook)
+        mock_readline.insert_text.assert_called_once_with("mkdir mac")
+        mock_readline.set_startup_hook.assert_any_call(None)
+        mock_readline.set_pre_input_hook.assert_not_called()
 
 
 if __name__ == "__main__":

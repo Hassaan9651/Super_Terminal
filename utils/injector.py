@@ -93,21 +93,34 @@ def prefill_next_input(text: str) -> bool:
     On Windows consoles, fall back to writing key events to the console input
     buffer so the next prompt receives the generated command as keystrokes.
     """
+    if sys.platform == "win32":
+        time.sleep(0.05)
+        return inject_string_to_stdin(text)
+
     if readline is not None:
+        is_libedit = "libedit" in getattr(readline, "__doc__", "").lower()
+
         def pre_input_hook() -> None:
             readline.insert_text(text)
             readline.redisplay()
             readline.set_pre_input_hook(None)
 
-        if hasattr(readline, "set_pre_input_hook"):
-            readline.set_pre_input_hook(pre_input_hook)
-        else:
-            def startup_hook() -> None:
-                readline.insert_text(text)
-                readline.set_startup_hook(None)
+        def startup_hook() -> None:
+            readline.insert_text(text)
+            readline.set_startup_hook(None)
 
-            readline.set_startup_hook(startup_hook)
-        return True
+        try:
+            if is_libedit and hasattr(readline, "set_startup_hook"):
+                readline.set_startup_hook(startup_hook)
+            elif hasattr(readline, "set_pre_input_hook"):
+                readline.set_pre_input_hook(pre_input_hook)
+            elif hasattr(readline, "set_startup_hook"):
+                readline.set_startup_hook(startup_hook)
+            else:
+                return False
+            return True
+        except Exception:
+            return False
 
     time.sleep(0.05)
     return inject_string_to_stdin(text)
