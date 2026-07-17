@@ -6,6 +6,7 @@ from utils.capabilities import detect_installed_tools, format_tool_context
 from utils.completion import enable_path_completion
 from utils.config import ConfigError, ensure_gemini_api_key, get_config_file
 from utils.detector import detect_environment
+from utils.history import enable_persistent_history
 from utils.translator import translate_intent, TranslationError
 from utils.classifier import classify_command
 from utils.executor import execute_readonly_command
@@ -111,6 +112,7 @@ def main():
 
     # 3. Core interactive sub-shell loop
     pending_modifying_command = False
+    enable_persistent_history()
     enable_path_completion()
 
     try:
