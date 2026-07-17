@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 from utils.capabilities import detect_installed_tools, format_tool_context
+from utils.completion import enable_path_completion
 from utils.config import ConfigError, ensure_gemini_api_key, get_config_file
 from utils.detector import detect_environment
 from utils.translator import translate_intent, TranslationError
@@ -110,6 +111,7 @@ def main():
 
     # 3. Core interactive sub-shell loop
     pending_modifying_command = False
+    enable_path_completion()
 
     try:
         while True:
