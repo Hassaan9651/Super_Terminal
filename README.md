@@ -107,6 +107,15 @@ for updating to latest version use ```--upgrade``` flag
 pip install --upgrade git+https://github.com/Hassaan9651/Super_Terminal.git
 ```
 
+and run using:
+```bash
+   superterminal
+```
+or
+```bash
+   super
+```
+
 ### Development Setup
 To clone the repository and run it locally:
 
@@ -122,13 +131,6 @@ To clone the repository and run it locally:
    ```
 
 3. **Run SuperTerminal**:
-   ```bash
-3. **Install the package locally**:
-   ```bash
-   pip install -e .
-   ```
-
-4. **Run SuperTerminal**:
    ```bash
    superterminal
    ```
