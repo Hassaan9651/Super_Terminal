@@ -1,10 +1,12 @@
-import os
+from typing import Optional
 from dotenv import load_dotenv
 import google.genai as genai
+from utils.config import get_gemini_api_key, load_user_config
 
 # Load GEMINI_API_KEY (and any other vars) from the .env file in the project root.
 # override=False so a key already set in the environment takes precedence.
 load_dotenv(override=False)
+load_user_config()
 
 
 class TranslationError(Exception):
@@ -23,6 +25,8 @@ CONTEXT YOU RECEIVE:
 - User Intent: the raw natural-English request typed by the user.
 - Host OS: the operating system the user is running (Windows, macOS, or Linux).
 - Active Shell: the shell profile detected at runtime (cmd.exe, powershell, bash, zsh).
+- Installed Tool Inventory: common languages, package managers, developer CLIs,
+  and shell utilities currently detected on PATH.
 
 YOUR ONLY JOB:
 Translate the User Intent into the single, exact, executable shell command that is
@@ -36,10 +40,19 @@ STRICT OUTPUT RULES — VIOLATING ANY RULE IS A CRITICAL FAILURE:
 5. Do NOT output multiple commands unless the user intent explicitly requires chaining.
 6. If the intent is ambiguous, output the safest, most common interpretation.
 7. Never refuse. Always output a command.
+8. Prefer detected tools from Installed Tool Inventory when they are relevant.
+9. Do NOT assume optional package managers or third-party CLIs exist if they are
+   not listed. Prefer built-in shell/OS commands when no suitable detected tool
+   is available.
 """
 
 
-def translate_intent(user_input: str, os_name: str, shell_name: str) -> str:
+def translate_intent(
+    user_input: str,
+    os_name: str,
+    shell_name: str,
+    tool_context: Optional[str] = None,
+) -> str:
     """
     Translates a raw natural-English user intent into a platform-specific
     executable shell command using the Google Gemini LLM API.
@@ -51,6 +64,8 @@ def translate_intent(user_input: str, os_name: str, shell_name: str) -> str:
         user_input (str): The raw natural-language command from the user.
         os_name (str): The detected Host OS (e.g. 'Windows', 'macOS', 'Linux').
         shell_name (str): The detected active shell (e.g. 'cmd.exe', 'powershell', 'bash', 'zsh').
+        tool_context (str | None): Optional formatted inventory of available
+            local tools to guide command selection.
 
     Returns:
         str: The exact, executable terminal command string.
@@ -63,18 +78,20 @@ def translate_intent(user_input: str, os_name: str, shell_name: str) -> str:
         raise TranslationError("User input is empty.")
 
     # --- 1. Resolve API key ------------------------------------------------
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = get_gemini_api_key()
     if not api_key:
         raise TranslationError(
             "GEMINI_API_KEY is not set. "
-            "Please add it to your .env file and restart Superterminal."
+            "Run SuperTerminal and enter your Gemini API key when prompted."
         )
 
     # --- 2. Build the user prompt ------------------------------------------
     user_prompt = (
         f"User Intent: {user_input.strip()}\n"
         f"Host OS: {os_name}\n"
-        f"Active Shell: {shell_name}"
+        f"Active Shell: {shell_name}\n"
+        f"Installed Tool Inventory:\n"
+        f"{tool_context or 'No optional tool inventory is available.'}"
     )
 
     # --- 3. Call the Gemini API --------------------------------------------

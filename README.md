@@ -90,12 +90,9 @@ SuperTerminal follows a modular, agentic workflow architecture:
 
 ### Prerequisites
 - Python 3.8 or higher installed on your system.
-- An API key for your preferred model provider (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) or a running instance of `Ollama`.
+- A Gemini API key from https://aistudio.google.com/apikey.
 
-### Quick Install (Via pip)
-```bash
-pip install superterminal-cli
-```
+On first launch, SuperTerminal asks for your Gemini API key and saves it to your user config directory. You can also set `GEMINI_API_KEY` in your environment to override the stored key.
 
 ### Development Setup
 To clone the repository and run it locally:
@@ -117,51 +114,37 @@ To clone the repository and run it locally:
    source venv/bin/activate
    ```
 
-3. **Install development dependencies**:
+3. **Install the package locally**:
    ```bash
-   pip install -e .[dev]
+   pip install -e .
    ```
 
-4. **Configure your API Key**:
-   Set your LLM provider API key in your environment variables:
+4. **Run SuperTerminal**:
    ```bash
-   # Windows (PowerShell)
-   $env:OPENAI_API_KEY="your-key-here"
-
-   # macOS/Linux (Bash/Zsh)
-   export OPENAI_API_KEY="your-key-here"
+   superterminal
    ```
+   The first run prompts for your Gemini API key and stores it for future sessions.
 
 ---
 
 ## 💡 Usage
 
-Start the SuperTerminal interactive session or execute single commands:
-
-### 1. Simple Command Generation
-Ask SuperTerminal to help you construct a command:
+Start the SuperTerminal interactive session:
 ```bash
-superterminal "find all csv files in downloads and move them to data directory"
-```
-*Output:*
-```
-[SuperTerminal] Suggested Command:
-  mv ~/Downloads/*.csv ./data/
-
-[?] Do you want to run this command? (y/n/edit):
+superterminal
 ```
 
-### 2. Error Troubleshooting Mode
-Let SuperTerminal capture the context of your last failed command and provide solution steps:
+You can also use the short alias:
 ```bash
-superterminal debug
+super
 ```
 
-### 3. Interactive Shell Session
-Launch a persistent chat session to perform complex, multi-step system setups:
-```bash
-superterminal chat
+Example:
 ```
+SuperTerminal (/Users/me/project) > find all csv files in downloads
+```
+
+Read-only commands run immediately. Modifying commands are placed on the next editable prompt line so you can review, change, and press Enter yourself.
 
 ---
 

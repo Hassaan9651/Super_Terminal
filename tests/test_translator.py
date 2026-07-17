@@ -67,6 +67,26 @@ class TestTranslator(unittest.TestCase):
         result = translate_intent("create folder called my-project", "Linux", "bash")
         self.assertEqual(result, "mkdir my-project")
 
+    @patch("utils.translator.genai.Client")
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "test-key-123"})
+    def test_translate_includes_tool_inventory_context(self, mock_client_cls):
+        """Installed tools are included in the LLM prompt for command selection."""
+        mock_client_cls.return_value.models.generate_content.return_value = (
+            _make_mock_response("rg TODO")
+        )
+
+        result = translate_intent(
+            "find TODO comments",
+            "macOS",
+            "zsh",
+            "- Shell Utilities: rg, grep, find",
+        )
+
+        self.assertEqual(result, "rg TODO")
+        call_kwargs = mock_client_cls.return_value.models.generate_content.call_args.kwargs
+        self.assertIn("Installed Tool Inventory:", call_kwargs["contents"])
+        self.assertIn("- Shell Utilities: rg, grep, find", call_kwargs["contents"])
+
     # ------------------------------------------------------------------
     # Response sanitisation
     # ------------------------------------------------------------------
@@ -115,12 +135,13 @@ class TestTranslator(unittest.TestCase):
         with self.assertRaises(TranslationError):
             translate_intent("   ", "Linux", "bash")
 
-    @patch.dict("os.environ", {"GEMINI_API_KEY": ""})
-    def test_missing_api_key_raises(self):
+    @patch("utils.translator.get_gemini_api_key", return_value="")
+    def test_missing_api_key_raises(self, mock_get_key):
         """Missing GEMINI_API_KEY must raise TranslationError before any API call."""
         with self.assertRaises(TranslationError) as ctx:
             translate_intent("list files", "Windows", "cmd.exe")
         self.assertIn("GEMINI_API_KEY", str(ctx.exception))
+        mock_get_key.assert_called_once()
 
     @patch("utils.translator.genai.Client")
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-key-123"})
