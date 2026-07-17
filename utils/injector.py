@@ -1,12 +1,18 @@
 import sys
 import time
 import ctypes
+from typing import Optional
 from ctypes import wintypes
 
 try:
     import readline
 except ImportError:
     readline = None
+
+try:
+    from prompt_toolkit import prompt as editable_prompt
+except ImportError:
+    editable_prompt = None
 
 # Win32 API Constants & Structures for input buffer injection
 STD_INPUT_HANDLE = -10
@@ -126,14 +132,48 @@ def prefill_next_input(text: str) -> bool:
     return inject_string_to_stdin(text)
 
 
-def handle_modifying_command(translated_command: str, native_shell: str) -> None:
+def read_editable_command(prompt_text: str, command: str) -> Optional[str]:
+    """
+    Reads a command on an editable prompt with the generated command prefilled.
+
+    prompt_toolkit is the preferred path because it is consistent across
+    Windows, GNU readline, and macOS libedit terminals.
+    """
+    if editable_prompt is not None:
+        try:
+            return editable_prompt(prompt_text, default=command)
+        except (EOFError, KeyboardInterrupt):
+            return None
+        except Exception:
+            pass
+
+    if prefill_next_input(command):
+        try:
+            return input(prompt_text)
+        except (EOFError, KeyboardInterrupt):
+            return None
+
+    return None
+
+
+def handle_modifying_command(
+    translated_command: str,
+    native_shell: str,
+    prompt_text: Optional[str] = None,
+) -> Optional[str]:
     """
     Handles modifying commands by writing 'Modifying command detected!', 
-    injecting the translation into the active input stream, and letting 
-    the user edit/confirm it natively in the command line loop.
+    presenting the translation on an editable command line, and letting
+    the user edit/confirm it before execution.
     """
     print("Modifying command detected!")
     sys.stdout.flush()
 
+    if prompt_text:
+        edited_command = read_editable_command(prompt_text, translated_command)
+        if edited_command is not None:
+            return edited_command
+
     if not prefill_next_input(translated_command):
         print(translated_command)
+    return None

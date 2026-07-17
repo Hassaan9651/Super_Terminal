@@ -4,7 +4,7 @@ import sys
 import io
 
 from utils.executor import execute_readonly_command
-from utils.injector import handle_modifying_command, prefill_next_input
+from utils.injector import handle_modifying_command, prefill_next_input, read_editable_command
 
 
 class TestExecution(unittest.TestCase):
@@ -52,6 +52,23 @@ class TestExecution(unittest.TestCase):
 
         mock_prefill.assert_called_once_with("mkdir new_dir")
         self.assertIn("Modifying command detected!", captured_out.getvalue())
+
+    @patch("utils.injector.read_editable_command", return_value="mkdir edited")
+    def test_handle_modifying_command_returns_edited_prompt_command(self, mock_read):
+        captured_out = io.StringIO()
+        with patch("sys.stdout", captured_out):
+            result = handle_modifying_command("mkdir new_dir", "bash", "SuperTerminal > ")
+
+        self.assertEqual(result, "mkdir edited")
+        mock_read.assert_called_once_with("SuperTerminal > ", "mkdir new_dir")
+        self.assertIn("Modifying command detected!", captured_out.getvalue())
+
+    @patch("utils.injector.editable_prompt", return_value="mkdir toolkit")
+    def test_read_editable_command_uses_prompt_toolkit_default(self, mock_prompt):
+        result = read_editable_command("SuperTerminal > ", "mkdir generated")
+
+        self.assertEqual(result, "mkdir toolkit")
+        mock_prompt.assert_called_once_with("SuperTerminal > ", default="mkdir generated")
 
     @patch("utils.injector.prefill_next_input", return_value=False)
     def test_handle_modifying_command_prints_fallback_when_prefill_fails(self, mock_prefill):
