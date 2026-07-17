@@ -28,7 +28,7 @@
 - **Real-Time Error Troubleshooting**: Automatically captures stderr from failed commands and explains the root cause along with a one-click fix.
 - **Interactive Multi-Step Workflows**: Guides you through complex operations (e.g., setting up Docker environments, configuring CI/CD pipelines) using interactive prompt menus.
 - **Safety First & Verification**: Dry-run preview mode lets you inspect, edit, or reject generated commands before execution.
-- **Extensible Agent Integration**: Connects to your favorite LLM providers (OpenAI, Anthropic, Ollama, Google Gemini) using secure API keys or local configurations.
+- **Gemini Integration**: Uses Google Gemini for natural-language command translation, with the API key stored locally on first run.
 
 ---
 
@@ -36,27 +36,26 @@
 
 SuperTerminal is built using modern, light-weight, and highly-performant tools:
 
-- **CLI Framework**: [Typer](https://typer.tiangolo.com/) & [Rich](https://rich.readthedocs.io/) (for beautiful, interactive terminal user interfaces)
 - **Core Language**: [Python 3.8+](https://www.python.org/)
-- **LLM Orchestration**: [LiteLLM](https://github.com/BerriAI/litellm) / [LangChain](https://github.com/langchain-ai/langchain) (for seamless switching between OpenAI, Anthropic, Gemini, and local LLMs)
-- **Configuration & State**: [Pydantic Settings](https://docs.pydantic.dev/) & YAML configurations
+- **LLM Provider**: [Google Gemini](https://ai.google.dev/) via `google-genai`
+- **Configuration**: User-level `.env` storage with `python-dotenv`
 
 ---
 
 ## 🏗️ Architecture
 
-SuperTerminal follows a modular, agentic workflow architecture:
+SuperTerminal follows a focused Gemini-powered command translation flow:
 
 ```
                   ┌────────────────────────────────────────┐
-                  │          Terminal User Interface       │
-                  │             (Typer & Rich UI)          │
+                  │          Terminal Interface            │
+                  │       (Interactive Python CLI)         │
                   └───────────────────┬────────────────────┘
                                       │
                                       ▼
                   ┌────────────────────────────────────────┐
                   │            Context Collector           │
-                  │   (OS, Shell, Current Directory, CWD)  │
+                  │  (OS, Shell, CWD, Installed Tools)     │
                   └───────────────────┬────────────────────┘
                                       │
                                       ▼
@@ -67,22 +66,22 @@ SuperTerminal follows a modular, agentic workflow architecture:
                                       │
                                       ▼
                   ┌────────────────────────────────────────┐
-                  │               LLM Agent                │
-                  │   (LiteLLM / Prompt Template Engine)   │
-                  └──────┬──────────────────────────┬──────┘
-                         │                          │
-                         ▼                          ▼
-            ┌────────────────────────┐  ┌────────────────────────┐
-            │     Cloud LLM APIs     │  │   Local LLM (Ollama)   │
-            │   (OpenAI, Anthropic,  │  │ (Llama 3, Codegemma)   │
-            │     Gemini, etc.)      │  │                        │
-            └────────────────────────┘  └────────────────────────┘
+                  │          Orchestration Engine          │
+                  │       (litellm + langchain).           │
+                  └───────────────────┬────────────────────┘
+                                      │
+                                      ▼
+                  ┌────────────────────────────────────────┐
+                  │          Google Gemini API             │
+                  │        (Cloud Model Provider)          │
+                  └────────────────────────────────────────┘
 ```
 
-1. **Terminal User Interface**: Renders prompts, interactive selections, syntax highlighting, and progress animations.
-2. **Context Collector**: Resolves local system information dynamically (e.g., detecting if running under Windows PowerShell or macOS Zsh) to prevent invalid commands.
-3. **Execution Planner**: Safeguards the user by scanning generated commands for dangerous operations (e.g., recursive deletes on system folders) and prompts for confirmation.
-4. **LLM Agent**: Translates prompts, handles fallback strategies, parses syntax, and generates structured command schemas.
+1. **Terminal Interface**: Runs the interactive `SuperTerminal (...) >` prompt and accepts natural language input.
+2. **Context Collector**: Resolves OS, shell, current directory, and available local CLI tools.
+3. **Execution Planner**: Classifies generated commands as read-only or modifying.
+4. **Gemini Translator**: Sends the user intent and local context to Google Gemini and receives one shell command.
+5. **Safety Gate**: Runs read-only commands immediately; places modifying commands on the next editable prompt line for user approval.
 
 ---
 
