@@ -3,6 +3,11 @@ import time
 import ctypes
 from ctypes import wintypes
 
+try:
+    import readline
+except ImportError:
+    readline = None
+
 # Win32 API Constants & Structures for input buffer injection
 STD_INPUT_HANDLE = -10
 KEY_EVENT = 0x0001
@@ -80,17 +85,42 @@ def inject_string_to_stdin(text: str) -> bool:
         return False
 
 
+def prefill_next_input(text: str) -> bool:
+    """
+    Prefills the next Python input()/readline prompt with editable text.
+
+    On Unix-like terminals, readline gives us a native editable command line.
+    On Windows consoles, fall back to writing key events to the console input
+    buffer so the next prompt receives the generated command as keystrokes.
+    """
+    if readline is not None:
+        def pre_input_hook() -> None:
+            readline.insert_text(text)
+            readline.redisplay()
+            readline.set_pre_input_hook(None)
+
+        if hasattr(readline, "set_pre_input_hook"):
+            readline.set_pre_input_hook(pre_input_hook)
+        else:
+            def startup_hook() -> None:
+                readline.insert_text(text)
+                readline.set_startup_hook(None)
+
+            readline.set_startup_hook(startup_hook)
+        return True
+
+    time.sleep(0.05)
+    return inject_string_to_stdin(text)
+
+
 def handle_modifying_command(translated_command: str, native_shell: str) -> None:
     """
     Handles modifying commands by writing 'Modifying command detected!', 
     injecting the translation into the active input stream, and letting 
     the user edit/confirm it natively in the command line loop.
     """
-    # 1. Output ONLY the specified warning string
     print("Modifying command detected!")
     sys.stdout.flush()
 
-    # 2. Inject the command characters back into the console input buffer
-    # We add a brief pause to allow the terminal window to settle before typing
-    time.sleep(0.05)
-    inject_string_to_stdin(translated_command)
+    if not prefill_next_input(translated_command):
+        print(translated_command)
