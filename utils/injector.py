@@ -1,7 +1,7 @@
 import sys
 import time
 import ctypes
-from typing import Optional
+from typing import Any, Optional
 from ctypes import wintypes
 
 try:
@@ -132,7 +132,11 @@ def prefill_next_input(text: str) -> bool:
     return inject_string_to_stdin(text)
 
 
-def read_editable_command(prompt_text: str, command: str) -> Optional[str]:
+def read_editable_command(
+    prompt_text: Any,
+    command: str,
+    fallback_prompt_text: Optional[str] = None,
+) -> Optional[str]:
     """
     Reads a command on an editable prompt with the generated command prefilled.
 
@@ -149,7 +153,7 @@ def read_editable_command(prompt_text: str, command: str) -> Optional[str]:
 
     if prefill_next_input(command):
         try:
-            return input(prompt_text)
+            return input(fallback_prompt_text or str(prompt_text))
         except (EOFError, KeyboardInterrupt):
             return None
 
@@ -159,7 +163,8 @@ def read_editable_command(prompt_text: str, command: str) -> Optional[str]:
 def handle_modifying_command(
     translated_command: str,
     native_shell: str,
-    prompt_text: Optional[str] = None,
+    prompt_text: Optional[Any] = None,
+    fallback_prompt_text: Optional[str] = None,
 ) -> Optional[str]:
     """
     Handles modifying commands by writing 'Modifying command detected!', 
@@ -170,7 +175,11 @@ def handle_modifying_command(
     sys.stdout.flush()
 
     if prompt_text:
-        edited_command = read_editable_command(prompt_text, translated_command)
+        edited_command = read_editable_command(
+            prompt_text,
+            translated_command,
+            fallback_prompt_text,
+        )
         if edited_command is not None:
             return edited_command
 
