@@ -139,7 +139,13 @@ Example:
 SuperTerminal (/Users/me/project) > find all csv files in downloads
 ```
 
-Read-only commands run immediately. Modifying commands are placed on the next editable prompt line so you can review, change, and press Enter yourself.
+Natural language is the default. If you want to run a shell command directly, prefix it with `!`:
+
+```text
+SuperTerminal (/Users/me/project) > !git status
+```
+
+Read-only generated commands run immediately. Modifying generated commands are placed on an editable prompt line with `!` in front, so it is obvious that the line is now a real shell command. You can review, change, and press Enter yourself.
 
 ### Examples
 
@@ -151,10 +157,6 @@ Possible command:
 ```bash
 find . -name "*.py"
 ```
-SuperTerminal (/Users/me/project) > find all csv files in downloads
-```
-
-Read-only commands run immediately. Modifying commands are placed on the next editable prompt line so you can review, change, and press Enter yourself.
 
 **Modifying command**
 ```text
@@ -162,7 +164,7 @@ SuperTerminal (/Users/me/project) > make a new folder called notes
 ```
 Possible editable command:
 ```bash
-mkdir notes
+!mkdir notes
 ```
 
 **Hard natural query**
@@ -171,7 +173,7 @@ SuperTerminal (/Users/me/project) > find every log file bigger than 10mb and mov
 ```
 Possible editable command:
 ```bash
-mkdir -p archive && find . -type f -name "*.log" -size +10M -exec mv {} archive/ \;
+!mkdir -p archive && find . -type f -name "*.log" -size +10M -exec mv {} archive/ \;
 ```
 
 **Hard natural query with imperfect wording**
@@ -180,7 +182,7 @@ SuperTerminal (/Users/me/project) > compress all jsn files frm downloads modifie
 ```
 Possible editable command:
 ```bash
-find ~/Downloads -name "*.json" -mtime -2 -mtime +0 -print0 | xargs -0 zip backup.zip
+!find ~/Downloads -name "*.json" -mtime -2 -mtime +0 -print0 | xargs -0 zip backup.zip
 ```
 
 ---

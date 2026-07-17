@@ -100,6 +100,26 @@ def print_readonly_execution(command_str: str) -> None:
     print(format_readonly_execution_line(command_str))
 
 
+def parse_direct_command(user_input: str) -> str:
+    normalized_input = (user_input or "").strip()
+    if not normalized_input.startswith("!"):
+        return ""
+    return normalized_input[1:].strip()
+
+
+def format_generated_command_for_review(command_str: str) -> str:
+    command = (command_str or "").strip()
+    if not command:
+        return "!"
+    if command.startswith("!"):
+        return command
+    return f"!{command}"
+
+
+def parse_approved_modifying_command(approved_command: str) -> str:
+    return parse_direct_command(approved_command)
+
+
 def format_prompt() -> str:
     red = prompt_control(ANSI_RED)
     yellow = prompt_control(ANSI_YELLOW)
@@ -148,6 +168,7 @@ def main():
     # 2. Print activation and greeting message using exact formatting
     print(f"⚡ Superterminal Activated [Host: {os_name} | Shell: {shell_name}]")
     print("👉 Turn your natural English thoughts into executable terminal commands.")
+    print("👉 Prefix real shell commands with '!': !git status")
     print("👉 Type 'exit', 'quit', or 'leave' to return to your native shell.")
     print(f"👉 Gemini key loaded from environment")
 
@@ -176,27 +197,16 @@ def main():
             if not normalized_input:
                 continue
 
-            # LOOP BREAK & STATE PRESERVATION FIX 1: Intercept directory change commands first!
-            if handle_directory_change(normalized_input):
+            direct_command = parse_direct_command(normalized_input)
+            if direct_command or normalized_input.startswith("!"):
+                if not direct_command:
+                    continue
+                if handle_directory_change(direct_command):
+                    continue
+                execute_command(direct_command, shell_name)
                 continue
 
-            # LOOP BREAK FIX 2: Check if this is already a native system command 
-            # (i.e. the user just pressed Enter on our injected command)
-            safety_classification = classify_command(normalized_input, shell_name)
-            
-            # If the user typed/entered something that is already a valid system terminal command
-            # we execute it directly without sending it back to the LLM.
-            is_probably_command = any(
-                normalized_input.lower().startswith(prefix) for prefix in [
-                    "mkdir", "rm", "del", "rmdir", "new-item", "git", "ls", "dir", "pwd", "get-childitem"
-                ]
-            )
-
-            if is_probably_command:
-                execute_command(normalized_input, shell_name)
-                continue
-
-            # Otherwise, translate the natural English intent using the LLM
+            # Otherwise, translate the natural English intent using the LLM.
             try:
                 tool_context = format_tool_context(detect_installed_tools())
                 translated_cmd = translate_intent(
@@ -217,15 +227,19 @@ def main():
                     execute_readonly_command(translated_cmd, shell_name)
                 else:
                     approved_cmd = handle_modifying_command(
-                        translated_cmd,
+                        format_generated_command_for_review(translated_cmd),
                         shell_name,
                         format_prompt_fragments(),
                         format_plain_prompt(),
                     )
                     if approved_cmd and approved_cmd.strip():
-                        if handle_directory_change(approved_cmd):
+                        approved_direct_cmd = parse_approved_modifying_command(approved_cmd)
+                        if not approved_direct_cmd:
+                            print("Command not executed. Keep '!' at the start to run a real command.")
                             continue
-                        execute_command(approved_cmd, shell_name)
+                        if handle_directory_change(approved_direct_cmd):
+                            continue
+                        execute_command(approved_direct_cmd, shell_name)
             except TranslationError as e:
                 print(f"Error: {e}")
             sys.stdout.flush()
