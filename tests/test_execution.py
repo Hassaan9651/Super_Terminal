@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock
 import sys
 import io
 
+from main import execute_command
 from utils.executor import execute_readonly_command
 from utils.injector import handle_modifying_command, prefill_next_input, read_editable_command
 
@@ -43,6 +44,16 @@ class TestExecution(unittest.TestCase):
         self.assertIn("cannot access", captured_err.getvalue())
         mock_run.assert_called_once_with("ls non_existent", shell=True, text=True, capture_output=True)
 
+    @patch("main.execute_readonly_command")
+    def test_execute_command_prints_readonly_banner(self, mock_execute_readonly):
+        captured_out = io.StringIO()
+
+        with patch("sys.stdout", captured_out):
+            execute_command("ls", "bash")
+
+        self.assertIn("Executing read-only command: ls", captured_out.getvalue())
+        mock_execute_readonly.assert_called_once_with("ls", "bash")
+
     @patch("utils.injector.prefill_next_input", return_value=True)
     def test_handle_modifying_command_prefills_next_prompt(self, mock_prefill):
         # Capture console outputs
@@ -60,15 +71,19 @@ class TestExecution(unittest.TestCase):
             result = handle_modifying_command("mkdir new_dir", "bash", "SuperTerminal > ")
 
         self.assertEqual(result, "mkdir edited")
-        mock_read.assert_called_once_with("SuperTerminal > ", "mkdir new_dir")
+        mock_read.assert_called_once_with("SuperTerminal > ", "mkdir new_dir", None)
         self.assertIn("Modifying command detected!", captured_out.getvalue())
 
     @patch("utils.injector.editable_prompt", return_value="mkdir toolkit")
     def test_read_editable_command_uses_prompt_toolkit_default(self, mock_prompt):
-        result = read_editable_command("SuperTerminal > ", "mkdir generated")
+        prompt_fragments = [
+            ("ansired", "SuperTerminal"),
+            ("", " > "),
+        ]
+        result = read_editable_command(prompt_fragments, "mkdir generated")
 
         self.assertEqual(result, "mkdir toolkit")
-        mock_prompt.assert_called_once_with("SuperTerminal > ", default="mkdir generated")
+        mock_prompt.assert_called_once_with(prompt_fragments, default="mkdir generated")
 
     @patch("utils.injector.prefill_next_input", return_value=False)
     def test_handle_modifying_command_prints_fallback_when_prefill_fails(self, mock_prefill):

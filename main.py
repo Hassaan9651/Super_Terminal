@@ -16,6 +16,7 @@ READLINE_START_INVISIBLE = "\001"
 READLINE_END_INVISIBLE = "\002"
 ANSI_RED = "\033[31m"
 ANSI_YELLOW = "\033[33m"
+ANSI_DARK_GREEN = "\033[32;2m"
 ANSI_RESET = "\033[0m"
 
 
@@ -65,11 +66,20 @@ def execute_command(command_str: str, shell_name: str) -> None:
     """Executes a user-approved shell command in the active shell context."""
     safety_classification = classify_command(command_str, shell_name)
     if safety_classification == "READ-ONLY":
+        print_readonly_execution(command_str)
         execute_readonly_command(command_str, shell_name)
     elif sys.platform == "win32" and shell_name.lower() == "powershell":
         subprocess.run(["powershell.exe", "-Command", command_str])
     else:
         subprocess.run(command_str, shell=True)
+
+
+def format_readonly_execution_line(command_str: str) -> str:
+    return f"{ANSI_DARK_GREEN}Executing read-only command: {command_str}{ANSI_RESET}"
+
+
+def print_readonly_execution(command_str: str) -> None:
+    print(format_readonly_execution_line(command_str))
 
 
 def format_prompt() -> str:
@@ -81,6 +91,15 @@ def format_prompt() -> str:
 
 def format_plain_prompt() -> str:
     return f"SuperTerminal ({os.getcwd()}) > "
+
+
+def format_prompt_fragments() -> list:
+    return [
+        ("ansired", "SuperTerminal"),
+        ("", " "),
+        ("ansiyellow", f"({os.getcwd()})"),
+        ("", " > "),
+    ]
 
 
 def main():
@@ -176,11 +195,13 @@ def main():
 
                 if safety_classification == "READ-ONLY":
                     # Pass both parameters to execute via powershell.exe on Windows
+                    print_readonly_execution(translated_cmd)
                     execute_readonly_command(translated_cmd, shell_name)
                 else:
                     approved_cmd = handle_modifying_command(
                         translated_cmd,
                         shell_name,
+                        format_prompt_fragments(),
                         format_plain_prompt(),
                     )
                     if approved_cmd and approved_cmd.strip():
