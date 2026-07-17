@@ -90,6 +90,7 @@ PRD.md
 *.njsproj
 *.sln
 *.swp
+.DS_Store
 
 # MyPy
 .mypy_cache/

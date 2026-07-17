@@ -6,7 +6,9 @@
 
 **SuperTerminal** is an AI-powered terminal assistant designed to bridge the gap between natural language and the command line. It translates complex tasks into executable shell commands, explains system outputs, troubleshoots errors in real-time, and automates multi-step terminal workflows—all without leaving your shell.
 
-----
+---
+![SuperTerminal demo](https://drive.google.com/uc?export=view&id=1LVQ06ubWWNYPIZ2syKKGWkhlQ73JRhHh)
+
 
 ## 📖 Table of Contents
 - [Features](#-features)
