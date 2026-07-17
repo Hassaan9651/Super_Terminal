@@ -10,9 +10,12 @@ from main import (
     READLINE_END_INVISIBLE,
     READLINE_START_INVISIBLE,
     format_plain_prompt,
+    format_generated_command_for_review,
     format_prompt,
     format_prompt_fragments,
     format_readonly_execution_line,
+    parse_approved_modifying_command,
+    parse_direct_command,
     prompt_control,
 )
 
@@ -69,6 +72,20 @@ class TestMainPrompt(unittest.TestCase):
             format_readonly_execution_line("ls -la"),
             f"{ANSI_DARK_GREEN}Executing read-only command: ls -la{ANSI_RESET}",
         )
+
+    def test_parse_direct_command_requires_bang_prefix(self):
+        self.assertEqual(parse_direct_command("!git status"), "git status")
+        self.assertEqual(parse_direct_command("  !ls -la  "), "ls -la")
+        self.assertEqual(parse_direct_command("git status"), "")
+        self.assertEqual(parse_direct_command("ls all files from yesterday"), "")
+
+    def test_format_generated_command_for_review_adds_bang_prefix(self):
+        self.assertEqual(format_generated_command_for_review("mkdir notes"), "!mkdir notes")
+        self.assertEqual(format_generated_command_for_review("!rm temp"), "!rm temp")
+
+    def test_parse_approved_modifying_command_requires_bang_prefix(self):
+        self.assertEqual(parse_approved_modifying_command("!mkdir notes"), "mkdir notes")
+        self.assertEqual(parse_approved_modifying_command("mkdir notes"), "")
 
 
 if __name__ == "__main__":
