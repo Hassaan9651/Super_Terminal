@@ -95,6 +95,18 @@ SuperTerminal follows a focused Gemini-powered command translation flow:
 
 On first launch, SuperTerminal asks for your Gemini API key and saves it to your user config directory. You can also set `GEMINI_API_KEY` in your environment to override the stored key.
 
+### Installation
+
+Simply install it as a python package
+```bash
+pip install git+https://github.com/Hassaan9651/Super_Terminal.git
+```
+
+for updating to latest version use ```--upgrade``` flag
+```bash
+pip install --upgrade git+https://github.com/Hassaan9651/Super_Terminal.git
+```
+
 ### Development Setup
 To clone the repository and run it locally:
 
