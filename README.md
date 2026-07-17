@@ -110,6 +110,13 @@ To clone the repository and run it locally:
 
 3. **Run SuperTerminal**:
    ```bash
+3. **Install the package locally**:
+   ```bash
+   pip install -e .
+   ```
+
+4. **Run SuperTerminal**:
+   ```bash
    superterminal
    ```
    The first run prompts for your Gemini API key and stores it for future sessions.
@@ -145,6 +152,10 @@ Possible command:
 ```bash
 find . -name "*.py"
 ```
+SuperTerminal (/Users/me/project) > find all csv files in downloads
+```
+
+Read-only commands run immediately. Modifying commands are placed on the next editable prompt line so you can review, change, and press Enter yourself.
 
 **Modifying command**
 ```text
