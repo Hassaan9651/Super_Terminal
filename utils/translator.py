@@ -15,6 +15,18 @@ class TranslationError(Exception):
     pass
 
 
+# Reused across calls: creating a genai.Client per request adds a full
+# connection setup to every command's latency.
+_client = None
+
+
+def _get_client(api_key: str):
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=api_key)
+    return _client
+
+
 def _extract_text_response(response) -> str:
     """
     Extracts only text parts from a Gemini response.
@@ -129,7 +141,7 @@ def translate_intent(
 
     # --- 3. Call the Gemini API --------------------------------------------
     try:
-        client = genai.Client(api_key=api_key)
+        client = _get_client(api_key)
 
         response = client.models.generate_content(
             model="gemini-3.1-flash-lite",

@@ -31,6 +31,7 @@
 - **Interactive Multi-Step Workflows**: Guides you through complex operations (e.g., setting up Docker environments, configuring CI/CD pipelines) using interactive prompt menus.
 - **Safety First & Verification**: Dry-run preview mode lets you inspect, edit, or reject generated commands before execution.
 - **Gemini Integration**: Uses Google Gemini for natural-language command translation, with the API key stored locally on first run.
+- **Voice Input (Siri-style)**: Launch with `supervoice` and a floating mic button appears. Hold it, speak a command ("show me all python files"), release — Gemini turns the speech directly into a shell command, with the same read-only/modifying safety gate as typed input.
 
 ---
 
@@ -162,6 +163,34 @@ SuperTerminal (/Users/me/project) > !git status
 ```
 
 Read-only generated commands run immediately. Modifying generated commands are placed on an editable prompt line with `!` in front, so it is obvious that the line is now a real shell command. You can review, change, and press Enter yourself.
+
+### 🎤 Voice Input
+
+Voice support is installed automatically with the package. On an existing
+install, upgrade first so the `supervoice` command and its dependencies are
+present:
+```bash
+pip install --upgrade git+https://github.com/Hassaan9651/Super_Terminal.git
+# or in a local checkout:
+pip install -e .
+```
+
+Start SuperTerminal in voice mode:
+```bash
+supervoice
+# equivalent: super --voice
+```
+
+A small floating mic button appears on screen (bottom-right, draggable):
+
+- **Hold** the button, speak your command, and **release**. Your speech is translated straight into a shell command in a single Gemini call.
+- Read-only commands run immediately as `!command`; modifying commands are placed on the prompt as an editable `!command` line and wait for **you** to press Enter — the same safety gate as typed input.
+- If you were mid-typing when the result arrives, it is inserted into your line without auto-submitting.
+
+Notes:
+- On **macOS**, the first recording triggers the system microphone permission prompt for your terminal app (Terminal/iTerm2). If nothing is heard, check *System Settings → Privacy & Security → Microphone*.
+- Plain `super`/`superterminal` never shows the overlay. In voice mode, missing prerequisites (`tkinter`, `sounddevice`) are reported at startup with the exact install fix, and headless/SSH sessions skip the overlay automatically — the typed prompt keeps working as before.
+- If the overlay ever stops unexpectedly, the notice includes the path of a diagnostic log (`voice-overlay.log` in the SuperTerminal config directory) with the full error.
 
 ### Examples
 
