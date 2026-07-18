@@ -2,6 +2,7 @@ from typing import Optional
 from dotenv import load_dotenv
 import google.genai as genai
 from utils.config import get_gemini_api_key, load_user_config
+from utils.personality import load_personality_context
 
 # Load GEMINI_API_KEY (and any other vars) from the .env file in the project root.
 # override=False so a key already set in the environment takes precedence.
@@ -51,6 +52,8 @@ CONTEXT YOU RECEIVE:
 - Active Shell: the shell profile detected at runtime (cmd.exe, powershell, bash, zsh).
 - Installed Tool Inventory: common languages, package managers, developer CLIs,
   and shell utilities currently detected on PATH.
+- User Adaptation Notes: local lessons from earlier read-only retries and
+  rephrases, when available.
 
 YOUR ONLY JOB:
 Translate the User Intent into the single, exact, executable shell command that is
@@ -69,6 +72,8 @@ STRICT OUTPUT RULES — VIOLATING ANY RULE IS A CRITICAL FAILURE:
    not listed. Prefer built-in shell/OS commands when no suitable detected tool
    is available.
 10. For directory-change intents, assume the user wants to move to the directory inside the current directory. Only when the user is explicit about going somewhere else then use ~/
+11. Use User Adaptation Notes only to resolve the user's wording and expected
+    command shape. Do NOT output or summarize those notes.
 """
 
 
@@ -111,12 +116,15 @@ def translate_intent(
         )
 
     # --- 2. Build the user prompt ------------------------------------------
+    personality_context = load_personality_context()
     user_prompt = (
         f"User Intent: {user_input.strip()}\n"
         f"Host OS: {os_name}\n"
         f"Active Shell: {shell_name}\n"
         f"Installed Tool Inventory:\n"
-        f"{tool_context or 'No optional tool inventory is available.'}"
+        f"{tool_context or 'No optional tool inventory is available.'}\n"
+        f"User Adaptation Notes:\n"
+        f"{personality_context or 'No local adaptation notes are available.'}"
     )
 
     # --- 3. Call the Gemini API --------------------------------------------

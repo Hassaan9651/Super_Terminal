@@ -13,6 +13,7 @@ from utils.completion import enable_path_completion
 from utils.config import ConfigError, ensure_gemini_api_key, get_config_file
 from utils.detector import detect_environment
 from utils.history import enable_persistent_history
+from utils.monitoring import ReadOnlyRetryMonitor
 from utils.translator import translate_intent, TranslationError
 from utils.classifier import classify_command
 from utils.executor import execute_readonly_command
@@ -175,6 +176,7 @@ def main():
     # 3. Core interactive sub-shell loop
     enable_persistent_history()
     enable_path_completion()
+    read_only_retry_monitor = ReadOnlyRetryMonitor()
 
     try:
         while True:
@@ -216,16 +218,25 @@ def main():
                     tool_context,
                 )
                 safety_classification = classify_command(translated_cmd, shell_name)
-                
-                # Check directory change on translated commands too!
-                if handle_directory_change(translated_cmd):
-                    continue
 
                 if safety_classification == "READ-ONLY":
+                    read_only_retry_monitor.observe(
+                        user_input,
+                        translated_cmd,
+                        os_name,
+                        shell_name,
+                        os.getcwd(),
+                    )
+                    # Check directory change on translated commands too.
+                    if handle_directory_change(translated_cmd):
+                        continue
                     # Pass both parameters to execute via powershell.exe on Windows
                     print_readonly_execution(translated_cmd)
                     execute_readonly_command(translated_cmd, shell_name)
                 else:
+                    # Check directory change on translated commands too.
+                    if handle_directory_change(translated_cmd):
+                        continue
                     approved_cmd = handle_modifying_command(
                         format_generated_command_for_review(translated_cmd),
                         shell_name,

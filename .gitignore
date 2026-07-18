@@ -78,6 +78,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+skills/
 
 # Private planning docs
 PRD.md
