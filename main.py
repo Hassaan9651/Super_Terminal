@@ -17,6 +17,7 @@ from utils.translator import translate_intent, TranslationError
 from utils.classifier import classify_command
 from utils.executor import execute_readonly_command
 from utils.injector import handle_modifying_command
+from utils.voice import create_voice_input, start_voice_overlay
 
 READLINE_START_INVISIBLE = "\001"
 READLINE_END_INVISIBLE = "\002"
@@ -140,10 +141,13 @@ def format_prompt_fragments() -> list:
     ]
 
 
-def main():
+def main(enable_voice: bool = False):
     """
     Main application entry point. Initializes the environment detector,
     displays the activation greeting, and starts the interactive sub-shell loop.
+
+    Voice mode (the floating mic overlay) is opt-in: launch with the
+    `supervoice` command or pass `--voice`.
     """
     # Configure streams to support UTF-8 characters (emojis) on Windows terminals
     for stream in (sys.stdout, sys.stderr, sys.stdin):
@@ -176,10 +180,33 @@ def main():
     enable_persistent_history()
     enable_path_completion()
 
+    # 4. Voice overlay: floating hold-to-talk mic button (opt-in via the
+    #    `supervoice` command or --voice). When active, the prompt runs on
+    #    prompt_toolkit so spoken commands can be submitted into it;
+    #    otherwise the plain input() path is used.
+    voice_input = None
+    voice_manager = None
+    if enable_voice or "--voice" in sys.argv[1:]:
+        voice_input = create_voice_input()
+        if voice_input is not None:
+            voice_manager = start_voice_overlay(
+                voice_input,
+                os_name,
+                shell_name,
+                format_tool_context(detect_installed_tools()),
+            )
+        if voice_manager is None:
+            voice_input = None
+        else:
+            print("👉 Voice: hold the floating mic button, speak a command, release.")
+
     try:
         while True:
             try:
-                user_input = input(format_prompt())
+                if voice_input is not None:
+                    user_input = voice_input.prompt(format_prompt_fragments())
+                else:
+                    user_input = input(format_prompt())
             except EOFError:
                 # Handle Ctrl+D gracefully
                 print("\n👋 Deactivating Superterminal. Safe travels!")
@@ -248,6 +275,14 @@ def main():
         # Handle Ctrl+C gracefully without dumping a traceback stack
         print("\n👋 Deactivating Superterminal. Safe travels!")
         sys.exit(0)
+    finally:
+        if voice_manager is not None:
+            voice_manager.stop()
+
+def main_voice():
+    """Entry point for the `supervoice` command: SuperTerminal + mic overlay."""
+    main(enable_voice=True)
+
 
 if __name__ == "__main__":
     main()
