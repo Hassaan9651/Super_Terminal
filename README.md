@@ -166,11 +166,13 @@ Read-only generated commands run immediately. Modifying generated commands are p
 
 ### 🎤 Voice Input
 
-Install the optional voice dependency:
+Voice support is installed automatically with the package. On an existing
+install, upgrade first so the `supervoice` command and its dependencies are
+present:
 ```bash
-pip install "superterminal-cli[voice] @ git+https://github.com/Hassaan9651/Super_Terminal.git"
+pip install --upgrade git+https://github.com/Hassaan9651/Super_Terminal.git
 # or in a local checkout:
-pip install -e ".[voice]"
+pip install -e .
 ```
 
 Start SuperTerminal in voice mode:
@@ -187,7 +189,8 @@ A small floating mic button appears on screen (bottom-right, draggable):
 
 Notes:
 - On **macOS**, the first recording triggers the system microphone permission prompt for your terminal app (Terminal/iTerm2). If nothing is heard, check *System Settings → Privacy & Security → Microphone*.
-- Plain `super`/`superterminal` never shows the overlay. In voice mode, the overlay disables itself automatically in headless/SSH sessions or when `tkinter`/`sounddevice` are unavailable — the typed prompt keeps working as before.
+- Plain `super`/`superterminal` never shows the overlay. In voice mode, missing prerequisites (`tkinter`, `sounddevice`) are reported at startup with the exact install fix, and headless/SSH sessions skip the overlay automatically — the typed prompt keeps working as before.
+- If the overlay ever stops unexpectedly, the notice includes the path of a diagnostic log (`voice-overlay.log` in the SuperTerminal config directory) with the full error.
 
 ### Examples
 

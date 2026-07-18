@@ -71,6 +71,35 @@ def display_available(platform: str = None, environ=None) -> bool:
     return bool(environ.get("DISPLAY") or environ.get("WAYLAND_DISPLAY"))
 
 
+def preflight_voice_support() -> Optional[str]:
+    """Checks voice prerequisites up front, in the parent process.
+
+    Returns a human-readable problem description (with the fix) when voice
+    cannot run, or None when everything needed is importable.
+    """
+    try:
+        import tkinter  # noqa: F401
+    except Exception as exc:
+        return (
+            f"tkinter is not available ({exc}). "
+            "Voice needs a Python installation built with Tk support."
+        )
+    try:
+        import sounddevice  # noqa: F401
+    except Exception as exc:
+        return (
+            f"sounddevice is not available ({exc}). "
+            "Install it with: pip install sounddevice"
+        )
+    return None
+
+
+def get_overlay_log_file() -> Path:
+    from utils.config import get_config_dir
+
+    return get_config_dir() / "voice-overlay.log"
+
+
 def parse_overlay_message(line: str) -> Optional[dict]:
     """Parses one overlay stdout line; returns None for anything malformed."""
     try:
@@ -213,6 +242,21 @@ class VoiceOverlayManager:
         self._tool_context = tool_context
         self._process = None
         self._stopped = False
+        self._stderr_file = None
+        self._log_path = None
+
+    def _open_stderr_log(self):
+        """Child crashes must leave a trace: capture stderr to a log file."""
+        try:
+            log_path = get_overlay_log_file()
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            self._stderr_file = open(log_path, "w", encoding="utf-8")
+            self._log_path = log_path
+            return self._stderr_file
+        except Exception:
+            self._stderr_file = None
+            self._log_path = None
+            return subprocess.DEVNULL
 
     def start(self) -> bool:
         project_root = Path(__file__).resolve().parent.parent
@@ -225,16 +269,25 @@ class VoiceOverlayManager:
                 [sys.executable, "-m", OVERLAY_MODULE],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=self._open_stderr_log(),
                 cwd=str(project_root),
                 env=child_env,
                 text=True,
                 encoding="utf-8",
             )
         except Exception:
+            self._close_stderr_log()
             return False
         threading.Thread(target=self._reader_loop, daemon=True).start()
         return True
+
+    def _close_stderr_log(self) -> None:
+        if self._stderr_file is not None:
+            try:
+                self._stderr_file.close()
+            except Exception:
+                pass
+            self._stderr_file = None
 
     def _handle_command(self, command: str) -> None:
         command = (command or "").strip()
@@ -265,7 +318,26 @@ class VoiceOverlayManager:
         except Exception:
             pass
         if not self._stopped:
-            self._notify("Voice overlay stopped. Typed input keeps working as usual.")
+            self._notify(self._describe_unexpected_stop())
+
+    def _describe_unexpected_stop(self) -> str:
+        exit_code = None
+        try:
+            exit_code = self._process.wait(timeout=2)
+        except Exception:
+            pass
+        self._close_stderr_log()
+        message = "Voice overlay stopped"
+        if exit_code:
+            message += f" (exit code {exit_code})"
+        message += ". Typed input keeps working as usual."
+        if self._log_path is not None:
+            try:
+                if self._log_path.stat().st_size > 0:
+                    message += f" Details: {self._log_path}"
+            except OSError:
+                pass
+        return message
 
     def stop(self) -> None:
         self._stopped = True
@@ -284,6 +356,7 @@ class VoiceOverlayManager:
                 process.kill()
             except Exception:
                 pass
+        self._close_stderr_log()
 
 
 def create_voice_input() -> Optional[VoiceInput]:
@@ -315,6 +388,11 @@ def start_voice_overlay(
         if not (sys.stdin.isatty() and sys.stdout.isatty()):
             return None
     except Exception:
+        return None
+
+    problem = preflight_voice_support()
+    if problem is not None:
+        print_voice_notice(f"Voice disabled: {problem}")
         return None
 
     manager = VoiceOverlayManager(voice_input, os_name, shell_name, tool_context)

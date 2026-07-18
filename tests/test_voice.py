@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -5,6 +6,7 @@ from utils.voice import (
     VoiceOverlayManager,
     display_available,
     parse_overlay_message,
+    preflight_voice_support,
     voice_explicitly_disabled,
 )
 
@@ -60,7 +62,42 @@ class TestVoiceGates(unittest.TestCase):
         self.assertTrue(display_available("linux", {"WAYLAND_DISPLAY": "wayland-0"}))
 
 
+class TestPreflightVoiceSupport(unittest.TestCase):
+
+    def test_reports_missing_sounddevice_with_install_fix(self):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "sounddevice":
+                raise ImportError("No module named 'sounddevice'")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            problem = preflight_voice_support()
+
+        self.assertIsNotNone(problem)
+        self.assertIn("pip install sounddevice", problem)
+
+    def test_passes_when_prerequisites_import(self):
+        # tkinter and sounddevice are installed in the dev environment.
+        self.assertIsNone(preflight_voice_support())
+
+
 class TestVoiceOverlayManager(unittest.TestCase):
+
+    def setUp(self):
+        # Keep the overlay stderr log out of the real user config directory.
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._env_patch = patch.dict(
+            "os.environ", {"SUPERTERMINAL_CONFIG_DIR": self._tmpdir.name}
+        )
+        self._env_patch.start()
+
+    def tearDown(self):
+        self._env_patch.stop()
+        self._tmpdir.cleanup()
 
     @patch("utils.voice.subprocess.Popen", side_effect=OSError("spawn failed"))
     def test_start_returns_false_when_spawn_fails(self, mock_popen):

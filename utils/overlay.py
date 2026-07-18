@@ -325,7 +325,12 @@ class OverlayApp:
         try:
             self._render()
         except Exception:
-            return  # canvas destroyed
+            # Canvas destroyed on shutdown is normal; anything else should
+            # leave a trace in the parent's overlay log.
+            import traceback
+
+            traceback.print_exc(file=sys.stderr)
+            return
         self.root.after(FRAME_MS, self._animate)
 
     def _render(self):
@@ -483,8 +488,17 @@ def main() -> int:
 
     threading.Thread(target=_warm_up, daemon=True).start()
 
-    OverlayApp(root)
-    root.mainloop()
+    try:
+        OverlayApp(root)
+        root.mainloop()
+    except Exception as exc:
+        # The parent captures stderr to a log file; leave the full trace
+        # there and a readable summary on the JSON channel.
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
+        send_message({"type": "error", "message": f"Voice overlay crashed: {exc}"})
+        return 1
     return 0
 
 
