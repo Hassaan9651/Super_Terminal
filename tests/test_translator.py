@@ -81,6 +81,16 @@ class TestTranslator(unittest.TestCase):
 
     @patch("utils.translator.genai.Client")
     @patch.dict("os.environ", {"GEMINI_API_KEY": "AIzattttttttttttttttttttttttttttttttttt"})
+    def test_translate_cd_home_relative_path(self, mock_client_cls):
+        """Home-folder directory changes should keep ~ in the generated command."""
+        mock_client_cls.return_value.models.generate_content.return_value = (
+            _make_mock_response("cd ~/Downloads")
+        )
+        result = translate_intent("go to downloads", "macOS", "zsh")
+        self.assertEqual(result, "cd ~/Downloads")
+
+    @patch("utils.translator.genai.Client")
+    @patch.dict("os.environ", {"GEMINI_API_KEY": "AIzattttttttttttttttttttttttttttttttttt"})
     def test_translate_includes_tool_inventory_context(self, mock_client_cls):
         """Installed tools are included in the LLM prompt for command selection."""
         mock_client_cls.return_value.models.generate_content.return_value = (

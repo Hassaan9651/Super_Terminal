@@ -68,6 +68,7 @@ STRICT OUTPUT RULES — VIOLATING ANY RULE IS A CRITICAL FAILURE:
 9. Do NOT assume optional package managers or third-party CLIs exist if they are
    not listed. Prefer built-in shell/OS commands when no suitable detected tool
    is available.
+10. For directory-change intents, assume the user wants to move to the directory inside the current directory. Only when the user is explicit about going somewhere else then use ~/
 """
 
 
