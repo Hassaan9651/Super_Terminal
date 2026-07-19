@@ -105,7 +105,7 @@ class ReadOnlyRetryMonitor:
         if self.previous_observation is not None:
             signal = classify_retry_signal(self.previous_observation, current)
             if signal:
-                wrote_event = self._write_event(signal, self.previous_observation, current)
+                self._write_event(signal, self.previous_observation, current)
                 if self.system_logger is not None:
                     self.system_logger.log(
                         "read_only_retry_signal",
@@ -125,7 +125,7 @@ class ReadOnlyRetryMonitor:
                         os_name=current.os_name,
                         shell_name=current.shell_name,
                     )
-                append_retry_learning(
+                wrote_event = append_retry_learning(
                     signal,
                     self.previous_observation,
                     current,
@@ -203,7 +203,7 @@ class ModifyingCommandEditMonitor:
                 "shell": shell_name,
             },
         }
-        wrote_event = write_jsonl_event(self.log_file, event)
+        write_jsonl_event(self.log_file, event)
         if self.system_logger is not None:
             self.system_logger.log(
                 "modifying_command_edit",
@@ -214,13 +214,12 @@ class ModifyingCommandEditMonitor:
                 os_name=os_name,
                 shell_name=shell_name,
             )
-        append_modifying_edit_learning(
+        return append_modifying_edit_learning(
             user_input,
             suggested_command,
             approved_command,
             self.personality_file,
         )
-        return wrote_event
 
 
 def was_modifying_command_edited(

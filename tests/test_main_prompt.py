@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from main import (
+    ANSI_BLUE,
     ANSI_DARK_GREEN,
     ANSI_RED,
     ANSI_RESET,
@@ -11,6 +12,7 @@ from main import (
     READLINE_START_INVISIBLE,
     format_plain_prompt,
     format_generated_command_for_review,
+    format_preference_remembered_line,
     format_prompt,
     format_prompt_fragments,
     format_readonly_execution_line,
@@ -71,6 +73,12 @@ class TestMainPrompt(unittest.TestCase):
         self.assertEqual(
             format_readonly_execution_line("ls -la"),
             f"{ANSI_DARK_GREEN}Executing read-only command: ls -la{ANSI_RESET}",
+        )
+
+    def test_format_preference_remembered_line_uses_blue(self):
+        self.assertEqual(
+            format_preference_remembered_line(),
+            f"{ANSI_BLUE}I'll remember your preference for this next time!{ANSI_RESET}",
         )
 
     def test_parse_direct_command_requires_bang_prefix(self):

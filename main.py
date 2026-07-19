@@ -26,7 +26,9 @@ READLINE_END_INVISIBLE = "\002"
 ANSI_RED = "\033[31m"
 ANSI_YELLOW = "\033[33m"
 ANSI_DARK_GREEN = "\033[32;2m"
+ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
+PREFERENCE_REMEMBERED_MESSAGE = "I'll remember your preference for the next time!"
 
 
 def nonprinting(text: str) -> str:
@@ -97,6 +99,14 @@ def format_readonly_execution_line(command_str: str) -> str:
 
 def print_readonly_execution(command_str: str) -> None:
     print(format_readonly_execution_line(command_str))
+
+
+def format_preference_remembered_line() -> str:
+    return f"{ANSI_BLUE}{PREFERENCE_REMEMBERED_MESSAGE}{ANSI_RESET}"
+
+
+def print_preference_remembered() -> None:
+    print(format_preference_remembered_line())
 
 
 def parse_direct_command(user_input: str) -> str:
@@ -314,14 +324,15 @@ def main():
                                 cwd=os.getcwd(),
                             )
                             continue
-                        modifying_edit_monitor.observe(
+                        if modifying_edit_monitor.observe(
                             user_input,
                             translated_cmd,
                             approved_direct_cmd,
                             os_name,
                             shell_name,
                             os.getcwd(),
-                        )
+                        ):
+                            print_preference_remembered()
                         system_logger.log(
                             "modifying_command_approved",
                             user_input=user_input,
