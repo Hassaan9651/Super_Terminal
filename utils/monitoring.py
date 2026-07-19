@@ -8,10 +8,11 @@ from typing import Optional
 from uuid import uuid4
 
 from utils.config import get_config_dir
-from utils.personality import append_retry_learning
+from utils.personality import append_modifying_edit_learning, append_retry_learning
 
 
 READ_ONLY_RETRY_LOG_NAME = "read_only_retries.jsonl"
+MODIFYING_EDIT_LOG_NAME = "modifying_command_edits.jsonl"
 SIMILAR_QUERY_THRESHOLD = 0.72
 
 
@@ -26,6 +27,10 @@ class ReadOnlyObservation:
 
 def get_readonly_retry_log_file() -> Path:
     return get_config_dir() / READ_ONLY_RETRY_LOG_NAME
+
+
+def get_modifying_edit_log_file() -> Path:
+    return get_config_dir() / MODIFYING_EDIT_LOG_NAME
 
 
 def normalize_intent(text: str) -> str:
@@ -136,15 +141,71 @@ class ReadOnlyRetryMonitor:
                 "shell": current.shell_name,
             },
         }
+        return write_jsonl_event(self.log_file, event)
 
-        try:
-            self.log_file.parent.mkdir(parents=True, exist_ok=True)
-            with self.log_file.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(event, sort_keys=True) + "\n")
-            try:
-                self.log_file.chmod(0o600)
-            except OSError:
-                pass
-            return True
-        except OSError:
+
+class ModifyingCommandEditMonitor:
+    def __init__(
+        self,
+        log_file: Path = None,
+        session_id: str = None,
+        personality_file: Path = None,
+    ):
+        self.log_file = log_file or get_modifying_edit_log_file()
+        self.personality_file = personality_file
+        self.session_id = session_id or uuid4().hex
+
+    def observe(
+        self,
+        user_input: str,
+        suggested_command: str,
+        approved_command: str,
+        os_name: str,
+        shell_name: str,
+        cwd: str,
+    ) -> bool:
+        if not was_modifying_command_edited(suggested_command, approved_command):
             return False
+
+        event = {
+            "event": "modifying_command_edit",
+            "session_id": self.session_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_input": user_input,
+            "suggested_command": suggested_command,
+            "approved_command": approved_command,
+            "cwd": cwd,
+            "environment": {
+                "os": os_name,
+                "shell": shell_name,
+            },
+        }
+        wrote_event = write_jsonl_event(self.log_file, event)
+        append_modifying_edit_learning(
+            user_input,
+            suggested_command,
+            approved_command,
+            self.personality_file,
+        )
+        return wrote_event
+
+
+def was_modifying_command_edited(
+    suggested_command: str,
+    approved_command: str,
+) -> bool:
+    return normalize_command(suggested_command) != normalize_command(approved_command)
+
+
+def write_jsonl_event(log_file: Path, event: dict) -> bool:
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        with log_file.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, sort_keys=True) + "\n")
+        try:
+            log_file.chmod(0o600)
+        except OSError:
+            pass
+        return True
+    except OSError:
+        return False

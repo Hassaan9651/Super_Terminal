@@ -13,7 +13,8 @@ from utils.completion import enable_path_completion
 from utils.config import ConfigError, ensure_gemini_api_key, get_config_file
 from utils.detector import detect_environment
 from utils.history import enable_persistent_history
-from utils.monitoring import ReadOnlyRetryMonitor
+from utils.monitoring import ModifyingCommandEditMonitor, ReadOnlyRetryMonitor
+from utils.personality import observe_user_expression
 from utils.translator import translate_intent, TranslationError
 from utils.classifier import classify_command
 from utils.executor import execute_readonly_command
@@ -45,29 +46,25 @@ def prompt_control(text: str) -> str:
 
 def handle_directory_change(command_str: str) -> bool:
     """
-    Intercepts and handles shell directory changes locally in the parent 
+    Intercepts and handles shell directory changes locally in the parent
     Python process so that state (working directory) is preserved.
     """
     clean_cmd = command_str.strip()
-    # Match patterns like: cd path, cd "path", Set-Location path, chdir path
     match = re.match(r'^(cd|chdir|set-location)\s+(.*)$', clean_cmd, re.IGNORECASE)
     if match:
         target_path = match.group(2).strip()
-        # Strip outer quotes if they exist
         if (target_path.startswith('"') and target_path.endswith('"')) or \
            (target_path.startswith("'") and target_path.endswith("'")):
             target_path = target_path[1:-1]
-        
+
         try:
             os.chdir(target_path)
             return True
         except Exception as e:
             print(f"Error changing directory: {e}")
             return True
-            
-    # Handle plain 'cd' (which usually prints or goes to home)
+
     if clean_cmd.lower() in ("cd", "chdir"):
-        # On Windows, 'cd' with no arguments prints the current directory
         if sys.platform == "win32":
             print(os.getcwd())
         else:
@@ -77,7 +74,7 @@ def handle_directory_change(command_str: str) -> bool:
             except Exception as e:
                 print(e)
         return True
-        
+
     return False
 
 
@@ -146,7 +143,6 @@ def main():
     Main application entry point. Initializes the environment detector,
     displays the activation greeting, and starts the interactive sub-shell loop.
     """
-    # Configure streams to support UTF-8 characters (emojis) on Windows terminals
     for stream in (sys.stdout, sys.stderr, sys.stdin):
         if hasattr(stream, "reconfigure"):
             try:
@@ -154,7 +150,6 @@ def main():
             except Exception:
                 pass
 
-    # 1. Detect Host OS and active shell
     os_name, shell_name = detect_environment()
 
     try:
@@ -166,36 +161,31 @@ def main():
             print(f"Gemini API key setup failed: {exc}")
         sys.exit(1)
 
-    # 2. Print activation and greeting message using exact formatting
     print(f"⚡ Superterminal Activated [Host: {os_name} | Shell: {shell_name}]")
     print("👉 Turn your natural English thoughts into executable terminal commands.")
     print("👉 Prefix real shell commands with '!': !git status")
     print("👉 Type 'exit', 'quit', or 'leave' to return to your native shell.")
     print(f"👉 Gemini key loaded from environment")
 
-    # 3. Core interactive sub-shell loop
     enable_persistent_history()
     enable_path_completion()
     read_only_retry_monitor = ReadOnlyRetryMonitor()
+    modifying_edit_monitor = ModifyingCommandEditMonitor()
 
     try:
         while True:
             try:
                 user_input = input(format_prompt())
             except EOFError:
-                # Handle Ctrl+D gracefully
                 print("\n👋 Deactivating Superterminal. Safe travels!")
                 break
 
-            # String normalization: strip whitespaces
             normalized_input = user_input.strip()
 
-            # Case-insensitive intercept trap for escape keywords
             if normalized_input.lower() in ("exit", "quit", "leave"):
                 print("👋 Deactivating Superterminal. Safe travels!")
                 break
 
-            # Skip empty inputs
             if not normalized_input:
                 continue
 
@@ -208,7 +198,6 @@ def main():
                 execute_command(direct_command, shell_name)
                 continue
 
-            # Otherwise, translate the natural English intent using the LLM.
             try:
                 tool_context = format_tool_context(detect_installed_tools())
                 translated_cmd = translate_intent(
@@ -218,6 +207,10 @@ def main():
                     tool_context,
                 )
                 safety_classification = classify_command(translated_cmd, shell_name)
+                observe_user_expression(user_input, translated_cmd)
+
+                if handle_directory_change(translated_cmd):
+                    continue
 
                 if safety_classification == "READ-ONLY":
                     read_only_retry_monitor.observe(
@@ -227,16 +220,9 @@ def main():
                         shell_name,
                         os.getcwd(),
                     )
-                    # Check directory change on translated commands too.
-                    if handle_directory_change(translated_cmd):
-                        continue
-                    # Pass both parameters to execute via powershell.exe on Windows
                     print_readonly_execution(translated_cmd)
                     execute_readonly_command(translated_cmd, shell_name)
                 else:
-                    # Check directory change on translated commands too.
-                    if handle_directory_change(translated_cmd):
-                        continue
                     approved_cmd = handle_modifying_command(
                         format_generated_command_for_review(translated_cmd),
                         shell_name,
@@ -248,6 +234,14 @@ def main():
                         if not approved_direct_cmd:
                             print("Command not executed. Keep '!' at the start to run a real command.")
                             continue
+                        modifying_edit_monitor.observe(
+                            user_input,
+                            translated_cmd,
+                            approved_direct_cmd,
+                            os_name,
+                            shell_name,
+                            os.getcwd(),
+                        )
                         if handle_directory_change(approved_direct_cmd):
                             continue
                         execute_command(approved_direct_cmd, shell_name)
@@ -256,9 +250,9 @@ def main():
             sys.stdout.flush()
 
     except KeyboardInterrupt:
-        # Handle Ctrl+C gracefully without dumping a traceback stack
         print("\n👋 Deactivating Superterminal. Safe travels!")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

@@ -15,6 +15,18 @@ class TranslationError(Exception):
     pass
 
 
+# Reused across calls: creating a genai.Client per request adds a full
+# connection setup to every command's latency.
+_client = None
+
+
+def _get_client(api_key: str):
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=api_key)
+    return _client
+
+
 def _extract_text_response(response) -> str:
     """
     Extracts only text parts from a Gemini response.
@@ -52,14 +64,14 @@ CONTEXT YOU RECEIVE:
 - Active Shell: the shell profile detected at runtime (cmd.exe, powershell, bash, zsh).
 - Installed Tool Inventory: common languages, package managers, developer CLIs,
   and shell utilities currently detected on PATH.
-- User Adaptation Notes: local lessons from earlier read-only retries and
-  rephrases, when available.
+- User Adaptation Profile: compact local style and preference notes learned
+  from earlier phrasing, retries, rephrases, and command edits when available.
 
 YOUR ONLY JOB:
 Translate the User Intent into the single, exact, executable shell command that is
 correct for the given Host OS and Active Shell combination.
 
-STRICT OUTPUT RULES — VIOLATING ANY RULE IS A CRITICAL FAILURE:
+STRICT OUTPUT RULES - VIOLATING ANY RULE IS A CRITICAL FAILURE:
 1. Output ONLY the raw command string. Nothing else.
 2. Do NOT wrap the command in markdown fences (``` or `).
 3. Do NOT include explanations, notes, warnings, caveats, or pleasantries.
@@ -71,9 +83,11 @@ STRICT OUTPUT RULES — VIOLATING ANY RULE IS A CRITICAL FAILURE:
 9. Do NOT assume optional package managers or third-party CLIs exist if they are
    not listed. Prefer built-in shell/OS commands when no suitable detected tool
    is available.
-10. For directory-change intents, assume the user wants to move to the directory inside the current directory. Only when the user is explicit about going somewhere else then use ~/
-11. Use User Adaptation Notes only to resolve the user's wording and expected
-    command shape. Do NOT output or summarize those notes.
+10. For directory-change intents, assume the user wants to move to a directory
+    inside the current directory. Use ~/ only when the user is explicit about
+    going to the home directory or a common home folder.
+11. Use the User Adaptation Profile only to resolve wording, shorthand, and
+    expected command shape. Do NOT output or summarize the profile.
 """
 
 
@@ -86,9 +100,6 @@ def translate_intent(
     """
     Translates a raw natural-English user intent into a platform-specific
     executable shell command using the Google Gemini LLM API.
-
-    The function signature is fully backward-compatible with the previous
-    dictionary-based implementation: callers in main.py need no changes.
 
     Args:
         user_input (str): The raw natural-language command from the user.
@@ -107,7 +118,6 @@ def translate_intent(
     if not user_input or not user_input.strip():
         raise TranslationError("User input is empty.")
 
-    # --- 1. Resolve API key ------------------------------------------------
     api_key = get_gemini_api_key()
     if not api_key:
         raise TranslationError(
@@ -115,7 +125,6 @@ def translate_intent(
             "Run SuperTerminal and enter your Gemini API key when prompted."
         )
 
-    # --- 2. Build the user prompt ------------------------------------------
     personality_context = load_personality_context()
     user_prompt = (
         f"User Intent: {user_input.strip()}\n"
@@ -123,25 +132,23 @@ def translate_intent(
         f"Active Shell: {shell_name}\n"
         f"Installed Tool Inventory:\n"
         f"{tool_context or 'No optional tool inventory is available.'}\n"
-        f"User Adaptation Notes:\n"
-        f"{personality_context or 'No local adaptation notes are available.'}"
+        f"User Adaptation Profile:\n"
+        f"{personality_context or 'No local adaptation profile is available.'}"
     )
 
-    # --- 3. Call the Gemini API --------------------------------------------
     try:
-        client = genai.Client(api_key=api_key)
+        client = _get_client(api_key)
 
         response = client.models.generate_content(
             model="gemini-3.1-flash-lite",
             config=genai.types.GenerateContentConfig(
                 system_instruction=_SYSTEM_INSTRUCTION,
-                temperature=0.0,        # Deterministic output for command translation
-                max_output_tokens=256,  # Commands are short; cap prevents runaway responses
+                temperature=0.0,
+                max_output_tokens=256,
             ),
             contents=user_prompt,
         )
 
-        # --- 4. Extract and sanitise the command ----------------------------
         raw = _extract_text_response(response)
 
         if not raw or not raw.strip():
@@ -149,11 +156,8 @@ def translate_intent(
                 f"LLM returned an empty response for intent: '{user_input}'"
             )
 
-        # Strip any residual markdown fences or surrounding whitespace the
-        # model may have included despite the system instruction.
         command = raw.strip().strip("`").strip()
 
-        # Remove a leading language tag a model sometimes emits (e.g. "bash\nls")
         lines = command.splitlines()
         if len(lines) > 1 and not lines[0].strip().startswith(("-", "/", ".", "$")):
             first = lines[0].strip().lower()
@@ -168,7 +172,6 @@ def translate_intent(
         return command
 
     except TranslationError:
-        # Re-raise our own errors without wrapping them
         raise
     except Exception as exc:
         raise TranslationError(

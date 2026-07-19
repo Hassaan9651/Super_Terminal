@@ -109,11 +109,11 @@ class TestTranslator(unittest.TestCase):
         self.assertIn("Installed Tool Inventory:", call_kwargs["contents"])
         self.assertIn("- Shell Utilities: rg, grep, find", call_kwargs["contents"])
 
-    @patch("utils.translator.load_personality_context", return_value="- Prefer py to mean Python files.")
+    @patch("utils.translator.load_personality_context", return_value="- Treat `py` as Python files.")
     @patch("utils.translator.genai.Client")
     @patch.dict("os.environ", {"GEMINI_API_KEY": "AIzattttttttttttttttttttttttttttttttttt"})
-    def test_translate_includes_personality_context(self, mock_client_cls, mock_load_context):
-        """Local adaptation notes are included in the LLM prompt."""
+    def test_translate_includes_personality_profile(self, mock_client_cls, mock_load_context):
+        """Compact local adaptation profile is included in the LLM prompt."""
         mock_client_cls.return_value.models.generate_content.return_value = (
             _make_mock_response("find . -name '*.py'")
         )
@@ -122,8 +122,8 @@ class TestTranslator(unittest.TestCase):
 
         self.assertEqual(result, "find . -name '*.py'")
         call_kwargs = mock_client_cls.return_value.models.generate_content.call_args.kwargs
-        self.assertIn("User Adaptation Notes:", call_kwargs["contents"])
-        self.assertIn("Prefer py to mean Python files", call_kwargs["contents"])
+        self.assertIn("User Adaptation Profile:", call_kwargs["contents"])
+        self.assertIn("Treat `py` as Python files", call_kwargs["contents"])
         mock_load_context.assert_called_once()
 
     # ------------------------------------------------------------------
