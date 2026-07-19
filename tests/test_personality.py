@@ -6,6 +6,8 @@ from utils.monitoring import ReadOnlyObservation
 from utils.personality import (
     append_modifying_edit_learning,
     append_retry_learning,
+    command_preference_key,
+    edit_preference_key,
     ensure_personality_file,
     get_personality_file,
     get_project_dir,
@@ -107,6 +109,63 @@ class TestPersonalityProfile(unittest.TestCase):
             self.assertIn("make a folder called reports", content)
             self.assertIn("prefer `mkdir -p reports`", content)
             self.assertIn("over `mkdir reports`", content)
+
+    def test_modifying_edit_learning_overwrites_similar_command_preference(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            personality_file = Path(tmpdir) / "skills" / "personality.md"
+
+            append_modifying_edit_learning(
+                "make folder hello",
+                "mkdir hello",
+                "mkdir -p hello",
+                personality_file,
+            )
+            append_modifying_edit_learning(
+                "make a folder reports",
+                "mkdir -p reports",
+                "mkdir reports",
+                personality_file,
+            )
+
+            content = personality_file.read_text(encoding="utf-8")
+            self.assertNotIn("make folder hello", content)
+            self.assertNotIn("mkdir -p hello", content)
+            self.assertIn("make a folder reports", content)
+            self.assertIn("prefer `mkdir reports`", content)
+            self.assertEqual(content.count("<!-- st:edit:mkdir -->"), 1)
+
+    def test_modifying_edit_learning_replaces_legacy_phrase_specific_marker(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            personality_file = Path(tmpdir) / "skills" / "personality.md"
+            ensure_personality_file(personality_file)
+            personality_file.write_text(
+                "# SuperTerminal User Adaptation\n\n"
+                "## Communication Style\n"
+                "- No stable preferences learned yet.\n\n"
+                "## Language Hints\n"
+                "- No stable preferences learned yet.\n\n"
+                "## Command Translation Preferences\n"
+                "- For wording like \"make folder hello\", prefer `mkdir -p hello` over `mkdir hello` when generating a modifying command. <!-- st:edit:make folder hello -->\n",
+                encoding="utf-8",
+            )
+
+            append_modifying_edit_learning(
+                "make a folder reports",
+                "mkdir -p reports",
+                "mkdir reports",
+                personality_file,
+            )
+
+            updated = personality_file.read_text(encoding="utf-8")
+            self.assertNotIn("make folder hello", updated)
+            self.assertIn("make a folder reports", updated)
+            self.assertEqual(updated.count("st:edit:"), 1)
+
+    def test_command_preference_keys_are_shape_based(self):
+        self.assertEqual(command_preference_key("mkdir notes"), "mkdir:no-options")
+        self.assertEqual(command_preference_key("mkdir reports"), "mkdir:no-options")
+        self.assertEqual(command_preference_key("mkdir -p notes"), "mkdir:-p")
+        self.assertEqual(edit_preference_key("mkdir notes", "mkdir -p notes"), "mkdir")
 
     def test_load_personality_context_omits_empty_profile_and_internal_markers(self):
         with tempfile.TemporaryDirectory() as tmpdir:

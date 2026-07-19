@@ -1,4 +1,5 @@
 import re
+import shlex
 from pathlib import Path
 
 
@@ -119,7 +120,7 @@ def dedupe_bullets(bullets: list) -> list:
     seen = set()
     unique = []
     for bullet in bullets:
-        key = extract_profile_marker(bullet) or normalize_for_profile(strip_profile_marker(bullet))
+        key = preference_family_key(bullet) or extract_profile_marker(bullet) or normalize_for_profile(strip_profile_marker(bullet))
         if key in seen:
             continue
         seen.add(key)
@@ -162,7 +163,15 @@ def write_profile_sections(personality_file: Path, sections: dict) -> None:
 
 def upsert_bullet(existing: list, bullet: str) -> list:
     marker = extract_profile_marker(bullet)
+    family_key = preference_family_key(bullet)
     if marker:
+        if family_key:
+            return [
+                candidate
+                for candidate in existing
+                if extract_profile_marker(candidate) != marker
+                and preference_family_key(candidate) != family_key
+            ] + [bullet]
         return [
             candidate
             for candidate in existing
@@ -244,14 +253,13 @@ def append_retry_learning(
     current,
     personality_file: Path = None,
 ) -> bool:
-    command_key = normalize_for_profile(current.translated_command)
     return upsert_profile_bullets(
         personality_file or get_personality_file(),
         {
             "Command Translation Preferences": [
                 (
                     f"- When similar read-only wording appears, prefer the command shape "
-                    f"`{current.translated_command}`. <!-- st:retry:{command_key} -->"
+                    f"`{current.translated_command}`. <!-- st:retry:{command_preference_key(current.translated_command)} -->"
                 )
             ]
         },
@@ -264,7 +272,7 @@ def append_modifying_edit_learning(
     approved_command: str,
     personality_file: Path = None,
 ) -> bool:
-    user_key = normalize_for_profile(user_input)
+    edit_key = edit_preference_key(suggested_command, approved_command)
     return upsert_profile_bullets(
         personality_file or get_personality_file(),
         {
@@ -272,7 +280,7 @@ def append_modifying_edit_learning(
                 (
                     f"- For wording like \"{user_input}\", prefer `{approved_command}` "
                     f"over `{suggested_command}` when generating a modifying command. "
-                    f"<!-- st:edit:{user_key} -->"
+                    f"<!-- st:edit:{edit_key} -->"
                 )
             ]
         },
@@ -293,3 +301,56 @@ def load_personality_context(personality_file: Path = None) -> str:
 
     context = strip_profile_markers(content)
     return context[-MAX_PROMPT_CHARS:]
+
+
+def edit_preference_key(suggested_command: str, approved_command: str) -> str:
+    suggested_key = command_preference_key(suggested_command)
+    approved_key = command_preference_key(approved_command)
+    if command_family(suggested_key) == command_family(approved_key):
+        return command_family(approved_key)
+    return f"{command_family(suggested_key)}-to-{command_family(approved_key)}"
+
+
+def preference_family_key(bullet: str) -> str:
+    marker = extract_profile_marker(bullet)
+    if marker.startswith("edit:"):
+        marker_value = marker.split(":", 1)[1]
+        if ":" in marker_value or "-to-" in marker_value:
+            return f"edit:{command_family(marker_value)}"
+        return infer_legacy_edit_family(strip_profile_marker(bullet))
+    if marker.startswith("retry:"):
+        return f"retry:{command_family(marker.split(':', 1)[1])}"
+    return ""
+
+
+def infer_legacy_edit_family(bullet: str) -> str:
+    commands = re.findall(r"`([^`]+)`", bullet or "")
+    if len(commands) >= 2:
+        return f"edit:{edit_preference_key(commands[1], commands[0])}"
+    return ""
+
+
+def command_preference_key(command: str) -> str:
+    parts = split_command(command)
+    if not parts:
+        return "unknown"
+
+    executable = normalize_executable(parts[0])
+    options = sorted(part for part in parts[1:] if part.startswith("-"))
+    option_key = ",".join(options) if options else "no-options"
+    return f"{executable}:{option_key}"
+
+
+def command_family(command_key: str) -> str:
+    return (command_key or "unknown").split(":", 1)[0]
+
+
+def normalize_executable(executable: str) -> str:
+    return (executable or "unknown").strip().lower()
+
+
+def split_command(command: str) -> list:
+    try:
+        return shlex.split(command or "")
+    except ValueError:
+        return (command or "").split()

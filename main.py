@@ -28,7 +28,7 @@ ANSI_YELLOW = "\033[33m"
 ANSI_DARK_GREEN = "\033[32;2m"
 ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
-PREFERENCE_REMEMBERED_MESSAGE = "I'll remember your preference for the next time!"
+PREFERENCE_REMEMBERED_MESSAGE = "I'll remember your preference for this next time!"
 
 
 def nonprinting(text: str) -> str:
