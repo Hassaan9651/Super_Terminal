@@ -1,8 +1,6 @@
 import re
 from pathlib import Path
 
-from utils.config import get_config_dir
-
 
 PERSONALITY_DIR_NAME = "skills"
 PERSONALITY_FILE_NAME = "personality.md"
@@ -63,7 +61,11 @@ SHORTHAND_HINTS = {
 
 
 def get_personality_file() -> Path:
-    return get_config_dir() / PERSONALITY_DIR_NAME / PERSONALITY_FILE_NAME
+    return get_project_dir() / PERSONALITY_DIR_NAME / PERSONALITY_FILE_NAME
+
+
+def get_project_dir() -> Path:
+    return Path(__file__).resolve().parent.parent
 
 
 def build_empty_profile() -> str:

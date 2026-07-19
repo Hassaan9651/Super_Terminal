@@ -11,6 +11,7 @@ from utils.monitoring import (
     intent_similarity,
     was_modifying_command_edited,
 )
+from utils.system_log import SystemLogger
 
 
 class TestMonitoring(unittest.TestCase):
@@ -57,11 +58,14 @@ class TestMonitoring(unittest.TestCase):
     def test_monitor_writes_retry_event_and_compact_learning(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = Path(tmpdir) / "read_only_retries.jsonl"
+            system_log_file = Path(tmpdir) / "system.log"
             personality_file = Path(tmpdir) / "skills" / "personality.md"
+            system_logger = SystemLogger(log_file=system_log_file, session_id="test-session")
             monitor = ReadOnlyRetryMonitor(
                 log_file=log_file,
                 session_id="test-session",
                 personality_file=personality_file,
+                system_logger=system_logger,
             )
 
             self.assertFalse(
@@ -76,12 +80,18 @@ class TestMonitoring(unittest.TestCase):
                 for line in log_file.read_text(encoding="utf-8").splitlines()
             ]
             personality_content = personality_file.read_text(encoding="utf-8")
+            system_events = [
+                json.loads(line)
+                for line in system_log_file.read_text(encoding="utf-8").splitlines()
+            ]
 
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "read_only_retry_signal")
         self.assertEqual(events[0]["session_id"], "test-session")
         self.assertIn("prefer the command shape", personality_content)
         self.assertNotIn("show python files", personality_content)
+        self.assertEqual(system_events[0]["event"], "read_only_retry_signal")
+        self.assertEqual(system_events[0]["session_id"], "test-session")
 
     def test_detects_modifying_command_edit(self):
         self.assertTrue(
@@ -100,11 +110,14 @@ class TestMonitoring(unittest.TestCase):
     def test_modifying_monitor_writes_edit_event_and_compact_learning(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = Path(tmpdir) / "modifying_command_edits.jsonl"
+            system_log_file = Path(tmpdir) / "system.log"
             personality_file = Path(tmpdir) / "skills" / "personality.md"
+            system_logger = SystemLogger(log_file=system_log_file, session_id="edit-session")
             monitor = ModifyingCommandEditMonitor(
                 log_file=log_file,
                 session_id="edit-session",
                 personality_file=personality_file,
+                system_logger=system_logger,
             )
 
             self.assertTrue(
@@ -123,6 +136,10 @@ class TestMonitoring(unittest.TestCase):
                 for line in log_file.read_text(encoding="utf-8").splitlines()
             ]
             personality_content = personality_file.read_text(encoding="utf-8")
+            system_events = [
+                json.loads(line)
+                for line in system_log_file.read_text(encoding="utf-8").splitlines()
+            ]
 
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "modifying_command_edit")
@@ -130,6 +147,8 @@ class TestMonitoring(unittest.TestCase):
         self.assertEqual(events[0]["approved_command"], "mkdir -p notes")
         self.assertIn("make a notes folder", personality_content)
         self.assertIn("prefer `mkdir -p notes`", personality_content)
+        self.assertEqual(system_events[0]["event"], "modifying_command_edit")
+        self.assertEqual(system_events[0]["session_id"], "edit-session")
 
     def test_modifying_monitor_ignores_unedited_command(self):
         with tempfile.TemporaryDirectory() as tmpdir:

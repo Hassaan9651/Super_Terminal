@@ -77,10 +77,12 @@ class ReadOnlyRetryMonitor:
         log_file: Path = None,
         session_id: str = None,
         personality_file: Path = None,
+        system_logger=None,
     ):
         self.log_file = log_file or get_readonly_retry_log_file()
         self.personality_file = personality_file
         self.session_id = session_id or uuid4().hex
+        self.system_logger = system_logger
         self.previous_observation = None
 
     def observe(
@@ -104,6 +106,25 @@ class ReadOnlyRetryMonitor:
             signal = classify_retry_signal(self.previous_observation, current)
             if signal:
                 wrote_event = self._write_event(signal, self.previous_observation, current)
+                if self.system_logger is not None:
+                    self.system_logger.log(
+                        "read_only_retry_signal",
+                        signal=signal,
+                        similarity=round(
+                            intent_similarity(
+                                self.previous_observation.user_input,
+                                current.user_input,
+                            ),
+                            3,
+                        ),
+                        previous_user_input=self.previous_observation.user_input,
+                        previous_translated_command=self.previous_observation.translated_command,
+                        current_user_input=current.user_input,
+                        current_translated_command=current.translated_command,
+                        cwd=current.cwd,
+                        os_name=current.os_name,
+                        shell_name=current.shell_name,
+                    )
                 append_retry_learning(
                     signal,
                     self.previous_observation,
@@ -150,10 +171,12 @@ class ModifyingCommandEditMonitor:
         log_file: Path = None,
         session_id: str = None,
         personality_file: Path = None,
+        system_logger=None,
     ):
         self.log_file = log_file or get_modifying_edit_log_file()
         self.personality_file = personality_file
         self.session_id = session_id or uuid4().hex
+        self.system_logger = system_logger
 
     def observe(
         self,
@@ -181,6 +204,16 @@ class ModifyingCommandEditMonitor:
             },
         }
         wrote_event = write_jsonl_event(self.log_file, event)
+        if self.system_logger is not None:
+            self.system_logger.log(
+                "modifying_command_edit",
+                user_input=user_input,
+                suggested_command=suggested_command,
+                approved_command=approved_command,
+                cwd=cwd,
+                os_name=os_name,
+                shell_name=shell_name,
+            )
         append_modifying_edit_learning(
             user_input,
             suggested_command,

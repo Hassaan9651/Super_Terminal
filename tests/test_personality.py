@@ -7,6 +7,8 @@ from utils.personality import (
     append_modifying_edit_learning,
     append_retry_learning,
     ensure_personality_file,
+    get_personality_file,
+    get_project_dir,
     load_personality_context,
     observe_user_expression,
 )
@@ -20,6 +22,12 @@ class TestPersonalityProfile(unittest.TestCase):
             os_name="Linux",
             shell_name="bash",
             cwd="/tmp/project",
+        )
+
+    def test_default_personality_file_lives_under_project_skills(self):
+        self.assertEqual(
+            get_personality_file(),
+            get_project_dir() / "skills" / "personality.md",
         )
 
     def test_ensure_personality_file_creates_summary_profile(self):

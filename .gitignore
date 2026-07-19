@@ -79,6 +79,8 @@ ENV/
 env.bak/
 venv.bak/
 skills/
+read_only_retries.jsonl
+modifying_command_edits.jsonl
 
 # Private planning docs
 PRD.md

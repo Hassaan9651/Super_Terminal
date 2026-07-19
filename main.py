@@ -15,6 +15,7 @@ from utils.detector import detect_environment
 from utils.history import enable_persistent_history
 from utils.monitoring import ModifyingCommandEditMonitor, ReadOnlyRetryMonitor
 from utils.personality import observe_user_expression
+from utils.system_log import SystemLogger
 from utils.translator import translate_intent, TranslationError
 from utils.classifier import classify_command
 from utils.executor import execute_readonly_command
@@ -169,8 +170,21 @@ def main():
 
     enable_persistent_history()
     enable_path_completion()
-    read_only_retry_monitor = ReadOnlyRetryMonitor()
-    modifying_edit_monitor = ModifyingCommandEditMonitor()
+    system_logger = SystemLogger()
+    system_logger.log(
+        "session_start",
+        os_name=os_name,
+        shell_name=shell_name,
+        cwd=os.getcwd(),
+    )
+    read_only_retry_monitor = ReadOnlyRetryMonitor(
+        session_id=system_logger.session_id,
+        system_logger=system_logger,
+    )
+    modifying_edit_monitor = ModifyingCommandEditMonitor(
+        session_id=system_logger.session_id,
+        system_logger=system_logger,
+    )
 
     try:
         while True:
@@ -193,9 +207,29 @@ def main():
             if direct_command or normalized_input.startswith("!"):
                 if not direct_command:
                     continue
+                system_logger.log(
+                    "direct_command_received",
+                    command=direct_command,
+                    cwd=os.getcwd(),
+                    os_name=os_name,
+                    shell_name=shell_name,
+                )
                 if handle_directory_change(direct_command):
+                    system_logger.log(
+                        "directory_changed",
+                        command=direct_command,
+                        cwd=os.getcwd(),
+                        source="direct_command",
+                    )
                     continue
                 execute_command(direct_command, shell_name)
+                system_logger.log(
+                    "direct_command_executed",
+                    command=direct_command,
+                    cwd=os.getcwd(),
+                    os_name=os_name,
+                    shell_name=shell_name,
+                )
                 continue
 
             try:
@@ -207,9 +241,31 @@ def main():
                     tool_context,
                 )
                 safety_classification = classify_command(translated_cmd, shell_name)
-                observe_user_expression(user_input, translated_cmd)
+                system_logger.log(
+                    "natural_language_translated",
+                    user_input=user_input,
+                    translated_command=translated_cmd,
+                    safety_classification=safety_classification,
+                    cwd=os.getcwd(),
+                    os_name=os_name,
+                    shell_name=shell_name,
+                )
+                if observe_user_expression(user_input, translated_cmd):
+                    system_logger.log(
+                        "personality_profile_updated",
+                        reason="passive_expression_observation",
+                        user_input=user_input,
+                        translated_command=translated_cmd,
+                        cwd=os.getcwd(),
+                    )
 
                 if handle_directory_change(translated_cmd):
+                    system_logger.log(
+                        "directory_changed",
+                        command=translated_cmd,
+                        cwd=os.getcwd(),
+                        source="translated_command",
+                    )
                     continue
 
                 if safety_classification == "READ-ONLY":
@@ -220,9 +276,25 @@ def main():
                         shell_name,
                         os.getcwd(),
                     )
+                    system_logger.log(
+                        "read_only_command_executing",
+                        user_input=user_input,
+                        command=translated_cmd,
+                        cwd=os.getcwd(),
+                        os_name=os_name,
+                        shell_name=shell_name,
+                    )
                     print_readonly_execution(translated_cmd)
                     execute_readonly_command(translated_cmd, shell_name)
                 else:
+                    system_logger.log(
+                        "modifying_command_review_started",
+                        user_input=user_input,
+                        suggested_command=translated_cmd,
+                        cwd=os.getcwd(),
+                        os_name=os_name,
+                        shell_name=shell_name,
+                    )
                     approved_cmd = handle_modifying_command(
                         format_generated_command_for_review(translated_cmd),
                         shell_name,
@@ -233,6 +305,14 @@ def main():
                         approved_direct_cmd = parse_approved_modifying_command(approved_cmd)
                         if not approved_direct_cmd:
                             print("Command not executed. Keep '!' at the start to run a real command.")
+                            system_logger.log(
+                                "modifying_command_rejected",
+                                user_input=user_input,
+                                suggested_command=translated_cmd,
+                                approved_input=approved_cmd,
+                                reason="missing_bang_prefix",
+                                cwd=os.getcwd(),
+                            )
                             continue
                         modifying_edit_monitor.observe(
                             user_input,
@@ -242,16 +322,54 @@ def main():
                             shell_name,
                             os.getcwd(),
                         )
+                        system_logger.log(
+                            "modifying_command_approved",
+                            user_input=user_input,
+                            suggested_command=translated_cmd,
+                            approved_command=approved_direct_cmd,
+                            cwd=os.getcwd(),
+                            os_name=os_name,
+                            shell_name=shell_name,
+                        )
                         if handle_directory_change(approved_direct_cmd):
+                            system_logger.log(
+                                "directory_changed",
+                                command=approved_direct_cmd,
+                                cwd=os.getcwd(),
+                                source="approved_modifying_command",
+                            )
                             continue
                         execute_command(approved_direct_cmd, shell_name)
+                        system_logger.log(
+                            "modifying_command_executed",
+                            user_input=user_input,
+                            command=approved_direct_cmd,
+                            cwd=os.getcwd(),
+                            os_name=os_name,
+                            shell_name=shell_name,
+                        )
             except TranslationError as e:
                 print(f"Error: {e}")
+                system_logger.log(
+                    "translation_error",
+                    user_input=user_input,
+                    error=str(e),
+                    cwd=os.getcwd(),
+                    os_name=os_name,
+                    shell_name=shell_name,
+                )
             sys.stdout.flush()
 
     except KeyboardInterrupt:
         print("\n👋 Deactivating Superterminal. Safe travels!")
         sys.exit(0)
+    finally:
+        system_logger.log(
+            "session_end",
+            os_name=os_name,
+            shell_name=shell_name,
+            cwd=os.getcwd(),
+        )
 
 
 if __name__ == "__main__":

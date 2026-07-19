@@ -16,6 +16,7 @@
 - [Architecture](#-architecture)
 - [Installation](#-installation)
 - [Usage](#-usage)
+- [Personalization & Logs](#-personalization--logs)
 - [Future Roadmap](#-future-roadmap)
 - [Contribution Guidelines](#-contribution-guidelines)
 - [License](#-license)
@@ -31,6 +32,7 @@
 - **Interactive Multi-Step Workflows**: Guides you through complex operations (e.g., setting up Docker environments, configuring CI/CD pipelines) using interactive prompt menus.
 - **Safety First & Verification**: Dry-run preview mode lets you inspect, edit, or reject generated commands before execution.
 - **Gemini Integration**: Uses Google Gemini for natural-language command translation, with the API key stored locally on first run.
+- **Local Personalization**: Learns compact preferences from your phrasing, retries, and edited commands so future translations better match how you naturally ask.
 
 ---
 
@@ -69,7 +71,7 @@ SuperTerminal follows a focused Gemini-powered command translation flow:
                                       ▼
                   ┌────────────────────────────────────────┐
                   │          Orchestration Engine          │
-                  │       (google-genai).                  │
+                  │             (google-genai)             │
                   └───────────────────┬────────────────────┘
                                       │
                                       ▼
@@ -80,9 +82,9 @@ SuperTerminal follows a focused Gemini-powered command translation flow:
 ```
 
 1. **Terminal Interface**: Runs the interactive `SuperTerminal (...) >` prompt and accepts natural language input.
-2. **Context Collector**: Resolves OS, shell, current directory, and available local CLI tools.
+2. **Context Collector**: Resolves OS, shell, current directory, available local CLI tools, and the compact local personalization profile.
 3. **Execution Planner**: Classifies generated commands as read-only or modifying.
-4. **Gemini Translator**: Sends the user intent and local context to Google Gemini and receives one shell command.
+4. **Gemini Translator**: Sends the user intent, local environment context, and compact adaptation profile to Google Gemini and receives one shell command.
 5. **Safety Gate**: Runs read-only commands immediately; places modifying commands on the next editable prompt line for user approval.
 
 ---
@@ -200,6 +202,37 @@ Possible editable command:
 ```bash
 !find ~/Downloads -name "*.json" -mtime -2 -mtime +0 -print0 | xargs -0 zip backup.zip
 ```
+
+---
+
+## 🧠 Personalization & Logs
+
+SuperTerminal keeps personalization local. It does not train Gemini or upload your shell history as a long conversation. Instead, it maintains a compact adaptation profile inside the project directory:
+
+```text
+skills/personality.md
+```
+
+The profile stores stable preferences such as:
+
+- short/action-first phrasing patterns
+- shorthand like `py` meaning Python files
+- read-only retries where the user asked the same thing differently
+- modifying commands the user edited before running
+
+Gemini only receives this compact `User Adaptation Profile`, not every logged command. Internal markers used for deduplication are stripped before prompt inclusion.
+
+SuperTerminal also keeps all-time local logs for debugging and monitoring in the SuperTerminal user config directory:
+
+```text
+system.log
+read_only_retries.jsonl
+modifying_command_edits.jsonl
+```
+
+Each `system.log` line is a JSON object with a timestamp, session ID, event name, and relevant metadata. Events include session start/end, translations, read-only execution, modifying command review, approved edits, retries, and profile updates.
+
+The `skills/` folder is intentionally ignored by git, so local personalization does not get committed. The log files are also ignored if they are ever created inside the repo during development.
 
 ---
 
