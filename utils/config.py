@@ -133,7 +133,7 @@ def read_secret_with_paste_detection(prompt_text: str) -> str:
         while True:
             char = sys.stdin.read(1)
             if char in ("\r", "\n"):
-                sys.stdout.write("\n")
+                sys.stdout.write("\r\n")
                 sys.stdout.flush()
                 return "".join(buffer)
             if char == "\x03":
@@ -147,9 +147,9 @@ def read_secret_with_paste_detection(prompt_text: str) -> str:
                 if sequence == BRACKETED_PASTE_START:
                     pasted_text = read_until(BRACKETED_PASTE_END)
                     buffer.extend(pasted_text)
-                    sys.stdout.write("\n")
+                    sys.stdout.write("\r\033[2K")
+                    sys.stdout.write(prompt_text)
                     sys.stdout.write(format_secret_pasted_line("".join(buffer)))
-                    sys.stdout.write("\n")
                     sys.stdout.flush()
                 continue
             buffer.append(char)
