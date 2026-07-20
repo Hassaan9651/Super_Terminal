@@ -10,7 +10,7 @@ except ImportError:
 
 from utils.capabilities import detect_installed_tools, format_tool_context
 from utils.completion import enable_path_completion
-from utils.config import ConfigError, ensure_gemini_api_key, get_config_file
+from utils.config import ConfigError, ensure_gemini_api_key, get_config_file, update_gemini_api_key
 from utils.detector import detect_environment
 from utils.history import enable_persistent_history
 from utils.monitoring import ModifyingCommandEditMonitor, ReadOnlyRetryMonitor
@@ -29,6 +29,14 @@ ANSI_DARK_GREEN = "\033[32;2m"
 ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
 PREFERENCE_REMEMBERED_MESSAGE = "I'll remember your preference for this next time!"
+API_KEY_UPDATE_COMMANDS = {
+    "key update",
+    "update key",
+    "api key update",
+    "update api key",
+    "gemini key update",
+    "update gemini key",
+}
 
 
 def nonprinting(text: str) -> str:
@@ -129,6 +137,10 @@ def parse_approved_modifying_command(approved_command: str) -> str:
     return parse_direct_command(approved_command)
 
 
+def is_api_key_update_command(user_input: str) -> bool:
+    return (user_input or "").strip().lower() in API_KEY_UPDATE_COMMANDS
+
+
 def format_prompt() -> str:
     red = prompt_control(ANSI_RED)
     yellow = prompt_control(ANSI_YELLOW)
@@ -175,6 +187,7 @@ def main():
     print(f"⚡ Superterminal Activated [Host: {os_name} | Shell: {shell_name}]")
     print("👉 Turn your natural English thoughts into executable terminal commands.")
     print("👉 Prefix real shell commands with '!': !git status")
+    print("👉 Update your saved Gemini API key anytime with: update key")
     print("👉 Type 'exit', 'quit', or 'leave' to return to your native shell.")
     print(f"👉 Gemini key loaded from environment")
 
@@ -211,6 +224,30 @@ def main():
                 break
 
             if not normalized_input:
+                continue
+
+            if is_api_key_update_command(normalized_input):
+                try:
+                    update_gemini_api_key()
+                    print("Gemini API key updated.")
+                    system_logger.log(
+                        "gemini_api_key_updated",
+                        cwd=os.getcwd(),
+                        os_name=os_name,
+                        shell_name=shell_name,
+                    )
+                except (ConfigError, KeyboardInterrupt, EOFError) as exc:
+                    if isinstance(exc, KeyboardInterrupt):
+                        print("\nGemini API key update cancelled.")
+                    else:
+                        print(f"Gemini API key update failed: {exc}")
+                    system_logger.log(
+                        "gemini_api_key_update_failed",
+                        error=str(exc),
+                        cwd=os.getcwd(),
+                        os_name=os_name,
+                        shell_name=shell_name,
+                    )
                 continue
 
             direct_command = parse_direct_command(normalized_input)

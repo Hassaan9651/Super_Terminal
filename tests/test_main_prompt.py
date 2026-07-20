@@ -16,6 +16,7 @@ from main import (
     format_prompt,
     format_prompt_fragments,
     format_readonly_execution_line,
+    is_api_key_update_command,
     parse_approved_modifying_command,
     parse_direct_command,
     prompt_control,
@@ -94,6 +95,12 @@ class TestMainPrompt(unittest.TestCase):
     def test_parse_approved_modifying_command_requires_bang_prefix(self):
         self.assertEqual(parse_approved_modifying_command("!mkdir notes"), "mkdir notes")
         self.assertEqual(parse_approved_modifying_command("mkdir notes"), "")
+
+    def test_api_key_update_command_aliases(self):
+        self.assertTrue(is_api_key_update_command("key update"))
+        self.assertTrue(is_api_key_update_command("update gemini key"))
+        self.assertTrue(is_api_key_update_command("  API KEY UPDATE  "))
+        self.assertFalse(is_api_key_update_command("update dependencies"))
 
 
 if __name__ == "__main__":

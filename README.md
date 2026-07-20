@@ -95,7 +95,7 @@ SuperTerminal follows a focused Gemini-powered command translation flow:
 - Python 3.8 or higher installed on your system.
 - A Gemini API key from https://aistudio.google.com/apikey.
 
-On first launch, SuperTerminal asks for your Gemini API key and saves it to your user config directory. You can also set `GEMINI_API_KEY` in your environment to override the stored key.
+On first launch, SuperTerminal asks for your Gemini API key and saves it to your user config directory. You can update the saved key anytime inside SuperTerminal with `update key`. You can also set `GEMINI_API_KEY` in your environment to override the stored key.
 
 ### Installation
 
