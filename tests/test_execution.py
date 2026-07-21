@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import sys
 import io
 
-from main import execute_command
+from main import INTERRUPTED_MESSAGE, execute_command
 from utils.executor import execute_readonly_command
 from utils.injector import handle_modifying_command, prefill_next_input, read_editable_command
 
@@ -22,8 +22,9 @@ class TestExecution(unittest.TestCase):
         # Capture output
         captured_out = io.StringIO()
         with patch("sys.stdout", captured_out):
-            execute_readonly_command("ls")
+            completed = execute_readonly_command("ls")
 
+        self.assertTrue(completed)
         self.assertIn("mocked_file.txt", captured_out.getvalue())
         mock_run.assert_called_once_with("ls", shell=True, text=True, capture_output=True)
 
@@ -39,20 +40,45 @@ class TestExecution(unittest.TestCase):
         # Capture error output
         captured_err = io.StringIO()
         with patch("sys.stderr", captured_err):
-            execute_readonly_command("ls non_existent")
+            completed = execute_readonly_command("ls non_existent")
 
+        self.assertTrue(completed)
         self.assertIn("cannot access", captured_err.getvalue())
         mock_run.assert_called_once_with("ls non_existent", shell=True, text=True, capture_output=True)
 
-    @patch("main.execute_readonly_command")
-    def test_execute_command_prints_readonly_banner(self, mock_execute_readonly):
+    @patch("subprocess.run", side_effect=KeyboardInterrupt)
+    def test_execute_readonly_command_interrupt_does_not_raise(self, mock_run):
         captured_out = io.StringIO()
 
         with patch("sys.stdout", captured_out):
-            execute_command("ls", "bash")
+            completed = execute_readonly_command("ls")
 
+        self.assertFalse(completed)
+        self.assertIn("Command execution interrupted by user.", captured_out.getvalue())
+        mock_run.assert_called_once_with("ls", shell=True, text=True, capture_output=True)
+
+    @patch("main.execute_readonly_command")
+    def test_execute_command_prints_readonly_banner(self, mock_execute_readonly):
+        mock_execute_readonly.return_value = True
+        captured_out = io.StringIO()
+
+        with patch("sys.stdout", captured_out):
+            completed = execute_command("ls", "bash")
+
+        self.assertTrue(completed)
         self.assertIn("Executing read-only command: ls", captured_out.getvalue())
         mock_execute_readonly.assert_called_once_with("ls", "bash")
+
+    @patch("main.subprocess.run", side_effect=KeyboardInterrupt)
+    def test_execute_command_interrupt_does_not_raise(self, mock_run):
+        captured_out = io.StringIO()
+
+        with patch("sys.stdout", captured_out):
+            completed = execute_command("mkdir notes", "bash")
+
+        self.assertFalse(completed)
+        self.assertIn(INTERRUPTED_MESSAGE, captured_out.getvalue())
+        mock_run.assert_called_once_with("mkdir notes", shell=True)
 
     @patch("utils.injector.prefill_next_input", return_value=True)
     def test_handle_modifying_command_prefills_next_prompt(self, mock_prefill):

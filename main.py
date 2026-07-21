@@ -30,6 +30,7 @@ ANSI_DARK_GREEN = "\033[32;2m"
 ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
 PREFERENCE_REMEMBERED_MESSAGE = "I'll remember your preference for this next time!"
+INTERRUPTED_MESSAGE = "Command interrupted. SuperTerminal is still running."
 API_KEY_UPDATE_COMMANDS = {
     "key update",
     "update key",
@@ -90,16 +91,21 @@ def handle_directory_change(command_str: str) -> bool:
     return False
 
 
-def execute_command(command_str: str, shell_name: str) -> None:
+def execute_command(command_str: str, shell_name: str) -> bool:
     """Executes a user-approved shell command in the active shell context."""
-    safety_classification = classify_command(command_str, shell_name)
-    if safety_classification == "READ-ONLY":
-        print_readonly_execution(command_str)
-        execute_readonly_command(command_str, shell_name)
-    elif sys.platform == "win32" and shell_name.lower() == "powershell":
-        subprocess.run(["powershell.exe", "-Command", command_str])
-    else:
-        subprocess.run(command_str, shell=True)
+    try:
+        safety_classification = classify_command(command_str, shell_name)
+        if safety_classification == "READ-ONLY":
+            print_readonly_execution(command_str)
+            return execute_readonly_command(command_str, shell_name)
+        elif sys.platform == "win32" and shell_name.lower() == "powershell":
+            subprocess.run(["powershell.exe", "-Command", command_str])
+        else:
+            subprocess.run(command_str, shell=True)
+        return True
+    except KeyboardInterrupt:
+        print_interrupted()
+        return False
 
 
 def format_readonly_execution_line(command_str: str) -> str:
@@ -114,12 +120,20 @@ def format_preference_remembered_line() -> str:
     return f"{ANSI_BLUE}{PREFERENCE_REMEMBERED_MESSAGE}{ANSI_RESET}"
 
 
+def format_interrupted_line() -> str:
+    return f"{ANSI_BLUE}{INTERRUPTED_MESSAGE}{ANSI_RESET}"
+
+
 def format_api_key_update_hint() -> str:
     return f"👉 Update your saved Gemini API key anytime with: {ANSI_ORANGE}update key{ANSI_RESET}"
 
 
 def print_preference_remembered() -> None:
     print(format_preference_remembered_line())
+
+
+def print_interrupted() -> None:
+    print(format_interrupted_line())
 
 
 def parse_direct_command(user_input: str) -> str:
@@ -218,6 +232,16 @@ def main():
         while True:
             try:
                 user_input = input(format_prompt())
+            except KeyboardInterrupt:
+                print()
+                print_interrupted()
+                system_logger.log(
+                    "input_interrupted",
+                    cwd=os.getcwd(),
+                    os_name=os_name,
+                    shell_name=shell_name,
+                )
+                continue
             except EOFError:
                 print("\n👋 Deactivating Superterminal. Safe travels!")
                 break
@@ -274,14 +298,14 @@ def main():
                         source="direct_command",
                     )
                     continue
-                execute_command(direct_command, shell_name)
-                system_logger.log(
-                    "direct_command_executed",
-                    command=direct_command,
-                    cwd=os.getcwd(),
-                    os_name=os_name,
-                    shell_name=shell_name,
-                )
+                if execute_command(direct_command, shell_name):
+                    system_logger.log(
+                        "direct_command_executed",
+                        command=direct_command,
+                        cwd=os.getcwd(),
+                        os_name=os_name,
+                        shell_name=shell_name,
+                    )
                 continue
 
             try:
@@ -392,15 +416,15 @@ def main():
                                 source="approved_modifying_command",
                             )
                             continue
-                        execute_command(approved_direct_cmd, shell_name)
-                        system_logger.log(
-                            "modifying_command_executed",
-                            user_input=user_input,
-                            command=approved_direct_cmd,
-                            cwd=os.getcwd(),
-                            os_name=os_name,
-                            shell_name=shell_name,
-                        )
+                        if execute_command(approved_direct_cmd, shell_name):
+                            system_logger.log(
+                                "modifying_command_executed",
+                                user_input=user_input,
+                                command=approved_direct_cmd,
+                                cwd=os.getcwd(),
+                                os_name=os_name,
+                                shell_name=shell_name,
+                            )
             except TranslationError as e:
                 print(f"Error: {e}")
                 system_logger.log(
@@ -411,11 +435,21 @@ def main():
                     os_name=os_name,
                     shell_name=shell_name,
                 )
+            except KeyboardInterrupt:
+                print()
+                print_interrupted()
+                system_logger.log(
+                    "turn_interrupted",
+                    user_input=user_input,
+                    cwd=os.getcwd(),
+                    os_name=os_name,
+                    shell_name=shell_name,
+                )
             sys.stdout.flush()
 
     except KeyboardInterrupt:
-        print("\n👋 Deactivating Superterminal. Safe travels!")
-        sys.exit(0)
+        print()
+        print_interrupted()
     finally:
         system_logger.log(
             "session_end",

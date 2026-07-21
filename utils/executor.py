@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-def execute_readonly_command(translated_command: str, shell_name: str = "powershell") -> None:
+def execute_readonly_command(translated_command: str, shell_name: str = "powershell") -> bool:
     """
     Executes a read-only shell command in a blocking background subprocess,
     captures its stdout and stderr streams, and prints the result cleanly.
@@ -39,11 +39,14 @@ def execute_readonly_command(translated_command: str, shell_name: str = "powersh
         if result.returncode != 0 and result.stderr:
             sys.stderr.write(result.stderr)
             sys.stderr.flush()
+        return True
 
     except KeyboardInterrupt:
         # Gracefully handle Ctrl+C interrupts during execution of sub-processes
         sys.stdout.write("\n⚠️ Command execution interrupted by user.\n")
         sys.stdout.flush()
+        return False
     except Exception as e:
         sys.stderr.write(f"Error executing command: {e}\n")
         sys.stderr.flush()
+        return False

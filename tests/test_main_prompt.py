@@ -9,11 +9,13 @@ from main import (
     ANSI_RED,
     ANSI_RESET,
     ANSI_YELLOW,
+    INTERRUPTED_MESSAGE,
     READLINE_END_INVISIBLE,
     READLINE_START_INVISIBLE,
     format_plain_prompt,
     format_api_key_update_hint,
     format_generated_command_for_review,
+    format_interrupted_line,
     format_preference_remembered_line,
     format_prompt,
     format_prompt_fragments,
@@ -82,6 +84,12 @@ class TestMainPrompt(unittest.TestCase):
         self.assertEqual(
             format_preference_remembered_line(),
             f"{ANSI_BLUE}I'll remember your preference for this next time!{ANSI_RESET}",
+        )
+
+    def test_format_interrupted_line_uses_blue(self):
+        self.assertEqual(
+            format_interrupted_line(),
+            f"{ANSI_BLUE}{INTERRUPTED_MESSAGE}{ANSI_RESET}",
         )
 
     def test_format_api_key_update_hint_colors_command_orange(self):
