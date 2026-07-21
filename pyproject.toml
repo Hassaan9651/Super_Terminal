@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "superterminal-cli"
-version = "0.1.0"
+version = "1.0.0"
 description = "Natural-language terminal command translator with editable safety prompts."
 readme = "README.md"
 requires-python = ">=3.8"
