@@ -25,6 +25,7 @@ READLINE_START_INVISIBLE = "\001"
 READLINE_END_INVISIBLE = "\002"
 ANSI_RED = "\033[31m"
 ANSI_YELLOW = "\033[33m"
+ANSI_ORANGE = "\033[38;5;208m"
 ANSI_DARK_GREEN = "\033[32;2m"
 ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
@@ -113,6 +114,10 @@ def format_preference_remembered_line() -> str:
     return f"{ANSI_BLUE}{PREFERENCE_REMEMBERED_MESSAGE}{ANSI_RESET}"
 
 
+def format_api_key_update_hint() -> str:
+    return f"👉 Update your saved Gemini API key anytime with: {ANSI_ORANGE}update key{ANSI_RESET}"
+
+
 def print_preference_remembered() -> None:
     print(format_preference_remembered_line())
 
@@ -187,7 +192,7 @@ def main():
     print(f"⚡ Superterminal Activated [Host: {os_name} | Shell: {shell_name}]")
     print("👉 Turn your natural English thoughts into executable terminal commands.")
     print("👉 Prefix real shell commands with '!': !git status")
-    print("👉 Update your saved Gemini API key anytime with: update key")
+    print(format_api_key_update_hint())
     print("👉 Type 'exit', 'quit', or 'leave' to return to your native shell.")
     print(f"👉 Gemini key loaded from environment")
 

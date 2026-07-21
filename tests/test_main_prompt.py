@@ -5,12 +5,14 @@ from unittest.mock import patch
 from main import (
     ANSI_BLUE,
     ANSI_DARK_GREEN,
+    ANSI_ORANGE,
     ANSI_RED,
     ANSI_RESET,
     ANSI_YELLOW,
     READLINE_END_INVISIBLE,
     READLINE_START_INVISIBLE,
     format_plain_prompt,
+    format_api_key_update_hint,
     format_generated_command_for_review,
     format_preference_remembered_line,
     format_prompt,
@@ -80,6 +82,12 @@ class TestMainPrompt(unittest.TestCase):
         self.assertEqual(
             format_preference_remembered_line(),
             f"{ANSI_BLUE}I'll remember your preference for this next time!{ANSI_RESET}",
+        )
+
+    def test_format_api_key_update_hint_colors_command_orange(self):
+        self.assertEqual(
+            format_api_key_update_hint(),
+            f"👉 Update your saved Gemini API key anytime with: {ANSI_ORANGE}update key{ANSI_RESET}",
         )
 
     def test_parse_direct_command_requires_bang_prefix(self):
