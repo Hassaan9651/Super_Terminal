@@ -1,7 +1,7 @@
 # SuperTerminal 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
 **SuperTerminal** is an AI-powered terminal assistant designed to bridge the gap between natural language and the command line. It translates complex tasks into executable shell commands, explains system outputs, troubleshoots errors in real-time, and automates multi-step terminal workflows—all without leaving your shell.
@@ -40,7 +40,7 @@
 
 SuperTerminal is built using modern, light-weight, and highly-performant tools:
 
-- **Core Language**: [Python 3.8+](https://www.python.org/)
+- **Core Language**: [Python 3.10+](https://www.python.org/)
 - **LLM Provider**: [Google Gemini](https://ai.google.dev/) via `google-genai`
 - **Configuration**: User-level `.env` storage with `python-dotenv`
 
@@ -92,30 +92,46 @@ SuperTerminal follows a focused Gemini-powered command translation flow:
 ## 🚀 Installation
 
 ### Prerequisites
-- Python 3.8 or higher installed on your system.
+- Python 3.10 or higher installed on your system.
 - A Gemini API key from https://aistudio.google.com/apikey.
 
 On first launch, SuperTerminal asks for your Gemini API key and saves it to your user config directory. You can update the saved key anytime inside SuperTerminal with `update key`. You can also set `GEMINI_API_KEY` in your environment to override the stored key.
 
 ### Installation
 
-Simply install it as a python package
+Install it in a virtual environment using the same Python interpreter you will
+use to run it. On Ubuntu, use Python 3.10 or newer.
+
 ```bash
-pip install git+https://github.com/Hassaan9651/Super_Terminal.git
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install --upgrade git+https://github.com/Hassaan9651/Super_Terminal.git
 ```
 
-for updating to latest version use ```--upgrade``` flag
+Then run:
+
 ```bash
-pip install --upgrade git+https://github.com/Hassaan9651/Super_Terminal.git
+superterminal
 ```
 
-and run using:
+`superterminal` is the only supported command name. The previous `super` alias
+was removed because it commonly collides with unrelated Linux programs.
+
+If an older or conflicting installation is still being run, check the resolved
+executable and package metadata:
+
 ```bash
-   superterminal
+command -v superterminal
+python -m pip show superterminal-cli
 ```
-or
+
+The executable should be inside `.venv/bin/` when the virtual environment is
+active. To replace a prior installation, run:
+
 ```bash
-   super
+python -m pip uninstall -y superterminal-cli
+python -m pip install --no-cache-dir --upgrade git+https://github.com/Hassaan9651/Super_Terminal.git
 ```
 
 ### Development Setup
