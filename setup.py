@@ -11,7 +11,7 @@ from setuptools import setup
 
 setup(
     name="superterminal-cli",
-    version="1.0.2",
+    version="1.0.3",
     description="Natural-language terminal command translator with editable safety prompts.",
     python_requires=">=3.10",
     py_modules=["main"],
@@ -22,5 +22,10 @@ setup(
         "python-dotenv>=1.0.0,<2.0.0",
     ],
     extras_require={"dev": ["pytest>=8.0.0,<9.0.0"]},
-    entry_points={"console_scripts": ["superterminal=main:main"]},
+    entry_points={
+        "console_scripts": [
+            "superterminal=main:main",
+            "super=main:main",
+        ]
+    },
 )

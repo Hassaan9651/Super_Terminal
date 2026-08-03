@@ -13,7 +13,9 @@ from utils.config import (
     format_secret_pasted_line,
     get_config_file,
     get_gemini_api_key,
+    read_escape_sequence,
     read_secret,
+    read_until,
     save_gemini_api_key,
     update_gemini_api_key,
 )
@@ -76,6 +78,18 @@ class TestConfig(unittest.TestCase):
             f"{ANSI_PINK}<secret pasted - length:10>{ANSI_RESET}",
         )
         self.assertNotIn("secret-key", formatted)
+
+    @patch("utils.config.select.select", return_value=([42], [], []))
+    @patch("utils.config.os.read", side_effect=[b"[", b"2", b"0", b"0", b"~"])
+    def test_read_escape_sequence_uses_file_descriptor_bytes(self, mock_read, mock_select):
+        self.assertEqual(read_escape_sequence(42, "\x1b"), "\x1b[200~")
+        self.assertEqual(mock_read.call_count, 5)
+        mock_select.assert_called_with([42], [], [], 0.5)
+
+    @patch("utils.config.os.read", side_effect=[b"a", b"b", b"\x1b", b"[", b"2", b"0", b"1", b"~"])
+    def test_read_until_stops_at_bracketed_paste_marker(self, mock_read):
+        self.assertEqual(read_until(42, "\x1b[201~"), "ab")
+        self.assertEqual(mock_read.call_count, 8)
 
     @patch("utils.config.getpass.getpass", return_value=PROMPTED_KEY)
     @patch("utils.config.sys.stdin")

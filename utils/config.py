@@ -131,7 +131,7 @@ def read_secret_with_paste_detection(prompt_text: str) -> str:
         tty.setraw(fd)
 
         while True:
-            char = sys.stdin.read(1)
+            char = read_terminal_character(fd)
             if char in ("\r", "\n"):
                 sys.stdout.write("\r\n")
                 sys.stdout.flush()
@@ -143,9 +143,9 @@ def read_secret_with_paste_detection(prompt_text: str) -> str:
                     buffer.pop()
                 continue
             if char == "\x1b":
-                sequence = read_escape_sequence(char)
+                sequence = read_escape_sequence(fd, char)
                 if sequence == BRACKETED_PASTE_START:
-                    pasted_text = read_until(BRACKETED_PASTE_END)
+                    pasted_text = read_until(fd, BRACKETED_PASTE_END)
                     buffer.extend(pasted_text)
                     sys.stdout.write("\r\033[2K")
                     sys.stdout.write(prompt_text)
@@ -159,22 +159,34 @@ def read_secret_with_paste_detection(prompt_text: str) -> str:
         sys.stdout.flush()
 
 
-def read_escape_sequence(first_char: str) -> str:
+def read_terminal_character(fd: int) -> str:
+    """Read one terminal byte without TextIO buffering interference.
+
+    Linux terminals can deliver a bracketed-paste marker across multiple reads.
+    Reading from ``sys.stdin`` mixes those bytes with Python's text buffer, so
+    a subsequent ``select`` may incorrectly report that no bytes are ready.
+    """
+    return os.read(fd, 1).decode("utf-8", errors="replace")
+
+
+def read_escape_sequence(fd: int, first_char: str) -> str:
     sequence = first_char
     while len(sequence) < len(BRACKETED_PASTE_START):
-        readable, _, _ = select.select([sys.stdin], [], [], 0.05)
+        # A short grace period also accommodates remote Linux terminals where
+        # the marker is not delivered in one kernel read.
+        readable, _, _ = select.select([fd], [], [], 0.5)
         if not readable:
             break
-        sequence += sys.stdin.read(1)
+        sequence += read_terminal_character(fd)
         if sequence.endswith("~"):
             break
     return sequence
 
 
-def read_until(terminator: str) -> str:
+def read_until(fd: int, terminator: str) -> str:
     text = ""
     while terminator not in text:
-        text += sys.stdin.read(1)
+        text += read_terminal_character(fd)
     pasted_text, _, _ = text.partition(terminator)
     return pasted_text
 
